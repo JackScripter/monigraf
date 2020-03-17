@@ -1,0 +1,41 @@
+#!/bin/bash
+source /etc/monigraf/monigraf.conf
+source /etc/monigraf/modules.d/network.conf
+function Check() {
+        while IFS= read -r net; do
+		macaddr=`cat /sys/class/net/${net}/address`             # Retrieve MAC address
+		rx_bytes_last=`cat /sys/class/net/${net}/statistics/rx_bytes`
+		tx_bytes_last=`cat /sys/class/net/${net}/statistics/tx_bytes`
+		sleep 1
+		rx_bytes_now=`cat /sys/class/net/${net}/statistics/rx_bytes`
+		tx_bytes_now=`cat /sys/class/net/${net}/statistics/tx_bytes`
+		rx_bytes=`echo $(($rx_bytes_now - $rx_bytes_last))`  # Calculate average bytes per seconds.
+                tx_bytes=`echo $(($tx_bytes_now - $tx_bytes_last))`     # Calculate average bytes per seconds.
+                influx -host $influxserver -username $userdb -password "$password" -database $dbname -execute "INSERT network,host=$HOSTNAME,mac=$macaddr rx_bytes=$rx_bytes,tx_bytes=$tx_bytes"
+        done <<< "$listNet"
+}
+
+function Refresh() {
+        influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM network_info WHERE host = $HOSTNAME"
+        while IFS= read -r net; do
+		idKern=`dmesg | grep e1000 | grep "$net" | grep renamed | tr -s ' ' | cut -d ' ' -f4`
+                macaddr=`cat /sys/class/net/${net}/address`		# Retrieve MAC address
+                speed=`cat /sys/class/net/${net}/speed`			# Interface Speed
+		duplex=`cat /sys/class/net/${net}/duplex`		# Duplex mode
+		mtu=`cat /sys/class/net/${net}/mtu`			# MTU
+		controller=`lspci -v -s "$idKern" | grep "Ethernet controller:" | cut -d ':' -f3`
+		driver=`lspci -v -s "$idKern" | grep "Kernel driver in use:" | cut -d ':' -f2`
+                influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT network_info,host=$HOSTNAME mac=\"$macaddr\",speed=\"$speed\",duplex=\"$duplex\",mtu=\"$mtu\",controller=\"$controller\",driver=\"$driver\",dev=\"$net\""
+        done <<< "$listNet"
+}
+
+if [[ "$1" == "--refresh" ]]; then
+        listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`            # Get network interfaces statistics
+	Refresh
+	exit
+fi
+while true; do
+	listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`		# Get network interfaces statistics
+	Check
+	sleep $delay
+done
