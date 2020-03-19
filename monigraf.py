@@ -3,7 +3,7 @@ import subprocess
 #import os
 from multiprocessing import Pool
 
-monitor_module = {"smart": "3600", "network": "3600"}
+monitor_module = {"smart": "3600", "network": "3600", "apcups": "3600"}
 processes = []
 def run_process(process):
 	#os.system('{}'.format(process))
@@ -16,5 +16,5 @@ for x, y in monitor_module.items():
 	modpath = "/opt/monigraf/modules/" + x
 	processes.append(modpath)
 
-pool = Pool(processes=2)
+pool = Pool(processes=3)
 pool.map(run_process, processes)
