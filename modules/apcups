@@ -1,0 +1,34 @@
+#!/bin/bash
+source /etc/monigraf/monigraf.conf
+source /etc/monigraf/modules.d/apcups.conf
+function Check() {
+	upsLine=`echo "$listUPS" | tr -s ' '`
+	sn=`echo "$upsLine" | grep ^SERIALNO | cut -d ' ' -f3`
+	inputVolt=`echo "$upsLine" | grep ^LINEV | cut -d ' ' -f3`
+	battCharge=`echo "$upsLine" | grep ^BCHARGE | cut -d ' ' -f3`
+	load=`echo "$upsLine" | grep ^LOADPCT | cut -d ' ' -f3`
+	timeLeft=`echo "$upsLine" | grep ^TIMELEFT | cut -d ' ' -f3`
+	influx -host $influxserver -username $userdb -password "$password" -database $dbname -execute "INSERT apcups,host=$HOSTNAME,sn=$sn volt=$inputVolt,charge=$battCharge,load=$load,time_left=$timeLeft"
+}
+
+function Refresh() {
+	influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM apcups_info WHERE host = $HOSTNAME"
+        upsLine=`echo "$listUPS" | tr -s ' '`
+        sn=`echo "$upsLine" | grep ^SERIALNO | cut -d ' ' -f3`
+        model=`echo "$upsLine" | grep ^MODEL | cut -d ' ' -f3-`
+	battdate=`echo "$upsLine" | grep ^BATTDATE | cut -d ' ' -f3`
+	maxpower=`echo "$upsLine" | grep ^NOMPOWER | cut -d ' ' -f3-`
+	version=`echo "$upsLine" | grep ^VERSION | cut -d ' ' -f3-`
+	upsName=`echo "$upsLine" | grep ^UPSNAME | cut -d ' ' -f3`
+	influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT apcups_info,host=$HOSTNAME sn=\"$sn\",model=\"$model\",battdate=\"$battdate\",maxpower=\"$maxpower\",version=\"$version\",ups_name=\"$upsName\""
+}
+if [[ "$1" == "--refresh" ]]; then
+        listUPS=`apcaccess`
+	Refresh
+        exit
+fi
+while true; do
+	listUPS=`apcaccess`
+	Check
+	sleep $delay
+done
