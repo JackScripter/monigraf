@@ -1,0 +1,49 @@
+#!/usr/bin/python3.7
+import time
+import sys
+import configparser
+import ast
+import handler
+
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+
+def Check(host):
+    print(host)
+    if host in config:
+        print(config[host]['sshuser'])
+    else:
+        print(config['DEFAULT']['sshuser'])
+    #while IFS= read -r net; do
+#	macaddr=`cat /sys/class/net/${net}/address`             # Retrieve MAC address
+#	rx_bytes_last=`cat /sys/class/net/${net}/statistics/rx_bytes`
+#	tx_bytes_last=`cat /sys/class/net/${net}/statistics/tx_bytes`
+#	time.sleep(1)
+#	rx_bytes_now=`cat /sys/class/net/${net}/statistics/rx_bytes`
+#	tx_bytes_now=`cat /sys/class/net/${net}/statistics/tx_bytes`
+#	rx_bytes=`echo $(($rx_bytes_now - $rx_bytes_last))`  # Calculate average bytes per seconds.
+#       tx_bytes=`echo $(($tx_bytes_now - $tx_bytes_last))`     # Calculate average bytes per seconds.
+#        influx -host $influxserver -username $userdb -password "$password" -database $dbname -execute "INSERT network,host=$HOSTNAME,mac=$macaddr rx_bytes=$rx_bytes,tx_bytes=$tx_bytes"
+#    done <<< "$listNet"
+
+#def Refresh():
+    #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM network_info WHERE host = $HOSTNAME"
+    #while IFS= read -r net; do
+        #idKern=`dmesg | grep e1000 | grep "$net" | grep renamed | tr -s ' ' | cut -d ' ' -f4`
+        #macaddr=`cat /sys/class/net/${net}/address`		# Retrieve MAC address
+        #speed=`cat /sys/class/net/${net}/speed`			# Interface Speed
+	#duplex=`cat /sys/class/net/${net}/duplex`		# Duplex mode
+	#mtu=`cat /sys/class/net/${net}/mtu`			# MTU
+	#controller=`lspci -v -s "$idKern" | grep "Ethernet controller:" | cut -d ':' -f3`
+	#driver=`lspci -v -s "$idKern" | grep "Kernel driver in use:" | cut -d ':' -f2`
+        #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT network_info,host=$HOSTNAME mac=\"$macaddr\",speed=\"$speed\",duplex=\"$duplex\",mtu=\"$mtu\",controller=\"$controller\",driver=\"$driver\",dev=\"$net\""
+    #done <<< "$listNet"
+
+#if sys.argv[1] is "--refresh":
+    #listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`            # Get network interfaces statistics
+#    Refresh()
+#    exit()
+while True:
+	#listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`            # Get network interfaces statistics
+        Check(host)
+    time.sleep(config['network'].getint('delay'))
