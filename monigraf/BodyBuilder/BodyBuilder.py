@@ -1,6 +1,7 @@
 #!/usr/bin/python3.7
 import configparser
 import json
+import time
 from influxdb import InfluxDBClient
 
 config = configparser.ConfigParser()
@@ -12,7 +13,7 @@ body = {}
 body['tags'] = {}
 body['fields'] = {}
 
-class BuildBody(object):
+class BuildBody():
     def __init__(self, measurement, host):
         body['measurement'] = measurement
         body['tags']['host'] = host
@@ -20,6 +21,4 @@ class BuildBody(object):
     def add_tag(self, key, value): body['tags'][key] = value
     def add_field(self, key, value): body['fields'][key] = value
 
-    def Send(self):
-        data = json.dumps([body])
-        client.write_points(data)
+    def Send(self): client.write_points([body])
