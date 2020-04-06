@@ -3,29 +3,32 @@ import time
 import sys
 import configparser
 import ast
-import handler
+import netifaces
+import socket
+from BodyBuilder import BodyBuilder
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
 
-def Check(host):
-    print(host)
-    if host in config:
-        print(config[host]['sshuser'])
-    else:
-        print(config['DEFAULT']['sshuser'])
-    #while IFS= read -r net; do
-#	macaddr=`cat /sys/class/net/${net}/address`             # Retrieve MAC address
-#	rx_bytes_last=`cat /sys/class/net/${net}/statistics/rx_bytes`
-#	tx_bytes_last=`cat /sys/class/net/${net}/statistics/tx_bytes`
-#	time.sleep(1)
-#	rx_bytes_now=`cat /sys/class/net/${net}/statistics/rx_bytes`
-#	tx_bytes_now=`cat /sys/class/net/${net}/statistics/tx_bytes`
-#	rx_bytes=`echo $(($rx_bytes_now - $rx_bytes_last))`  # Calculate average bytes per seconds.
-#       tx_bytes=`echo $(($tx_bytes_now - $tx_bytes_last))`     # Calculate average bytes per seconds.
-#        influx -host $influxserver -username $userdb -password "$password" -database $dbname -execute "INSERT network,host=$HOSTNAME,mac=$macaddr rx_bytes=$rx_bytes,tx_bytes=$tx_bytes"
-#    done <<< "$listNet"
-
+def Check(net):
+    txpath = "/sys/class/net/" + net + "/statistics/tx_bytes"
+    rxpath = "/sys/class/net/" + net + "/statistics/rx_bytes"
+    macaddr = netifaces.ifaddresses(net)[netifaces.AF_LINK][0]['addr']
+    rx_read = open(rxpath, 'r'); tx_read = open(txpath, 'r')
+    rx_bytes_last = rx_read.read(); tx_bytes_last = tx_read.read()
+    rx_read.close(); tx_read.close()
+    # Have to close everytime because the second value will be null.
+    time.sleep(1)
+    rx_read = open(rxpath, 'r'); tx_read = open(txpath, 'r')
+    rx_bytes_now = rx_read.read(); tx_bytes_now = tx_read.read()
+    rx_read.close(); tx_read.close()
+    rx_bytes = int(float(rx_bytes_now)) - int(float(rx_bytes_last))  # Calculate average bytes per seconds.
+    tx_bytes = int(float(tx_bytes_now)) - int(float(tx_bytes_last))     # Calculate average bytes per seconds.
+    dbinfo.add_tag("mac", macaddr)
+    dbinfo.add_field("rx_bytes", float(rx_bytes))
+    dbinfo.add_field("tx_bytes", float(tx_bytes))
+    dbinfo.Send()
 #def Refresh():
     #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM network_info WHERE host = $HOSTNAME"
     #while IFS= read -r net; do
@@ -43,7 +46,15 @@ def Check(host):
     #listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`            # Get network interfaces statistics
 #    Refresh()
 #    exit()
+
+if config['network']['interfaces'] == "all":
+    listNet = netifaces.interfaces()            # Get network interfaces
+    listNet.remove('lo')                        # Remove loopback interface. Don't want statistic from this one.
+else:
+    listNet = config['network']['interfaces']
+
+dbinfo = BodyBuilder.BuildBody("network", host)
 while True:
-	#listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`            # Get network interfaces statistics
-        Check(host)
-    time.sleep(config['network'].getint('delay'))
+    for net in ast.literal_eval(listNet):
+        Check(net)
+    time.sleep(config.getint('network','delay'))
