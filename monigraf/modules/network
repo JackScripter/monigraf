@@ -1,15 +1,26 @@
 #!/usr/bin/python3.7
+import re
 import time
 import sys
 import configparser
 import ast
-import netifaces
 import socket
+import subprocess
+import psutil
+import netifaces
 from BodyBuilder import BodyBuilder
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 host = socket.gethostname()
+
+def GetDevices():
+    if config['network']['interfaces'] == "all":
+        listNet = netifaces.interfaces()            # Get network interfaces
+        listNet.remove('lo')                        # Remove loopback interface. Don't want statistic from this one.
+    else:
+        listNet = config['network']['interfaces']
+    return listNet
 
 def Check(net):
     txpath = "/sys/class/net/" + net + "/statistics/tx_bytes"
@@ -28,30 +39,39 @@ def Check(net):
     dbinfo.add_tag("mac", macaddr)
     dbinfo.add_field("rx_bytes", float(rx_bytes))
     dbinfo.add_field("tx_bytes", float(tx_bytes))
-    dbinfo.Send()
-#def Refresh():
+    dbinfo.Add()
+
+def Refresh():
+    dbinfo.Delete()
     #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM network_info WHERE host = $HOSTNAME"
-    #while IFS= read -r net; do
-        #idKern=`dmesg | grep e1000 | grep "$net" | grep renamed | tr -s ' ' | cut -d ' ' -f4`
-        #macaddr=`cat /sys/class/net/${net}/address`		# Retrieve MAC address
-        #speed=`cat /sys/class/net/${net}/speed`			# Interface Speed
-	#duplex=`cat /sys/class/net/${net}/duplex`		# Duplex mode
-	#mtu=`cat /sys/class/net/${net}/mtu`			# MTU
-	#controller=`lspci -v -s "$idKern" | grep "Ethernet controller:" | cut -d ':' -f3`
-	#driver=`lspci -v -s "$idKern" | grep "Kernel driver in use:" | cut -d ':' -f2`
+    for net in ast.literal_eval(listNet):
+        dev = subprocess.run(['/usr/bin/lspci'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        for line in dev.splitlines():
+            if re.search('Ethernet', line):
+                idKern = line.split(' ')[0]
+                devInfos = subprocess.run(['/usr/bin/lspci', '-v', '-s', idKern], stdout=subprocess.PIPE).stdout.decode('utf-8')
+                for info in devInfos.splitlines():
+                    if re.search('Subsystem:', info): controller = info.split(': ')[1]
+                    elif re.search('driver', info): driver = info.split(': ')[1]
+        macaddr = netifaces.ifaddresses(net)[netifaces.AF_LINK][0]['addr']  # Retrieve MAC address
+        speed = psutil.net_if_stats()[net][2]   # Interface Speed
+        duplex = str(psutil.net_if_stats()[net][1]).split('_')[2]   # Duplex mode
+        mtu = psutil.net_if_stats()[net][3] # MTU
+        dbinfo.add_field("mac", macaddr)
+        dbinfo.add_field("speed", speed)
+        dbinfo.add_field("duplex", duplex)
+        dbinfo.add_field("controller", controller)
+        dbinfo.add_field("driver", driver)
+        dbinfo.add_field("dev", net)
+        dbinfo.add_field("mtu", mtu)
+        dbinfo.Add()
         #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT network_info,host=$HOSTNAME mac=\"$macaddr\",speed=\"$speed\",duplex=\"$duplex\",mtu=\"$mtu\",controller=\"$controller\",driver=\"$driver\",dev=\"$net\""
-    #done <<< "$listNet"
 
-#if sys.argv[1] is "--refresh":
-    #listNet=`netstat -i | awk '{print $1 }' | tail -n +3 | grep -v "lo"`            # Get network interfaces statistics
-#    Refresh()
-#    exit()
-
-if config['network']['interfaces'] == "all":
-    listNet = netifaces.interfaces()            # Get network interfaces
-    listNet.remove('lo')                        # Remove loopback interface. Don't want statistic from this one.
-else:
-    listNet = config['network']['interfaces']
+listNet = GetDevices()
+if sys.argv[1] == "refresh":
+    dbinfo = BodyBuilder.BuildBody("network_info", host)
+    Refresh()
+    exit()
 
 dbinfo = BodyBuilder.BuildBody("network", host)
 while True:

@@ -21,4 +21,5 @@ class BuildBody():
     def add_tag(self, key, value): body['tags'][key] = value
     def add_field(self, key, value): body['fields'][key] = value
 
-    def Send(self): client.write_points([body])
+    def Add(self): client.write_points([body])
+    def Delete(self): client.delete_series(tags={'host':body['tags']['host']},measurement=body['measurement'])
