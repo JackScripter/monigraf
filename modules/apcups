@@ -31,14 +31,16 @@ def Refresh():
         elif re.search('UPSNAME', line): upsName = line.split(': ')[1]; dbinfo.add_field("ups_name", upsName)
     dbinfo.Add()
 
-listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
-upsLine = ' '.join(listUPS.split(' '))
 if sys.argv[1] == "refresh":
+    listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+    upsLine = ' '.join(listUPS.split(' '))
     dbinfo = BodyBuilder.BuildBody("apcups_info", host)
     Refresh()
     exit()
 
 dbinfo = BodyBuilder.BuildBody("apcups", host)
 while True:
+    listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+    upsLine = ' '.join(listUPS.split(' '))
     Check()
     time.sleep(config.getint('apcups','delay'))
