@@ -1,34 +1,44 @@
-#!/bin/bash
-source /etc/monigraf/monigraf.conf
-source /etc/monigraf/modules.d/apcups.conf
-function Check() {
-	upsLine=`echo "$listUPS" | tr -s ' '`
-	sn=`echo "$upsLine" | grep ^SERIALNO | cut -d ' ' -f3`
-	inputVolt=`echo "$upsLine" | grep ^LINEV | cut -d ' ' -f3`
-	battCharge=`echo "$upsLine" | grep ^BCHARGE | cut -d ' ' -f3`
-	load=`echo "$upsLine" | grep ^LOADPCT | cut -d ' ' -f3`
-	timeLeft=`echo "$upsLine" | grep ^TIMELEFT | cut -d ' ' -f3`
-	influx -host $influxserver -username $userdb -password "$password" -database $dbname -execute "INSERT apcups,host=$HOSTNAME,sn=$sn volt=$inputVolt,charge=$battCharge,load=$load,time_left=$timeLeft"
-}
+#!/usr/bin/python3.7
+import re
+import time
+import sys
+import configparser
+import socket
+import subprocess
+from BodyBuilder import BodyBuilder
 
-function Refresh() {
-	influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM apcups_info WHERE host = $HOSTNAME"
-        upsLine=`echo "$listUPS" | tr -s ' '`
-        sn=`echo "$upsLine" | grep ^SERIALNO | cut -d ' ' -f3`
-        model=`echo "$upsLine" | grep ^MODEL | cut -d ' ' -f3-`
-	battdate=`echo "$upsLine" | grep ^BATTDATE | cut -d ' ' -f3`
-	maxpower=`echo "$upsLine" | grep ^NOMPOWER | cut -d ' ' -f3-`
-	version=`echo "$upsLine" | grep ^VERSION | cut -d ' ' -f3-`
-	upsName=`echo "$upsLine" | grep ^UPSNAME | cut -d ' ' -f3`
-	influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT apcups_info,host=$HOSTNAME sn=\"$sn\",model=\"$model\",battdate=\"$battdate\",maxpower=\"$maxpower\",version=\"$version\",ups_name=\"$upsName\""
-}
-if [[ "$1" == "--refresh" ]]; then
-        listUPS=`apcaccess`
-	Refresh
-        exit
-fi
-while true; do
-	listUPS=`apcaccess`
-	Check
-	sleep $delay
-done
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
+
+def Check():
+    for line in upsLine.splitlines():
+        if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_tag("serial_number", sn)
+        elif re.search('LINEV', line): inputVolt = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("inline_volt", float(inputVolt))
+        elif re.search('BCHARGE', line): battCharge = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("batt_charge", float(battCharge))
+        elif re.search('LOADPCT', line): load = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("load", float(load))
+        elif re.search('TIMELEFT', line): timeLeft = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("time_left", float(timeLeft))
+    dbinfo.Add()
+
+def Refresh():
+    dbinfo.Delete()
+    for line in upsLine.splitlines():
+        if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_field("serial_number", sn)
+        elif re.search('MODEL', line): model = line.split(': ')[1]; dbinfo.add_field("model", model)
+        elif re.search('BATTDATE', line): battdate = line.split(': ')[1]; dbinfo.add_field("batt_date", battdate)
+        elif re.search('NOMPOWER', line): maxpower = line.split(': ')[1]; dbinfo.add_field("maxpower", maxpower)
+        elif re.search('VERSION', line): version = line.split(': ')[1]; dbinfo.add_field("version", version)
+        elif re.search('UPSNAME', line): upsName = line.split(': ')[1]; dbinfo.add_field("ups_name", upsName)
+    dbinfo.Add()
+
+listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+upsLine = ' '.join(listUPS.split(' '))
+if sys.argv[1] == "refresh":
+    dbinfo = BodyBuilder.BuildBody("apcups_info", host)
+    Refresh()
+    exit()
+
+dbinfo = BodyBuilder.BuildBody("apcups", host)
+while True:
+    Check()
+    time.sleep(config.getint('apcups','delay'))

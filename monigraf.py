@@ -1,20 +1,21 @@
-#!/usr/local/bin/python3.7
+#!/usr/bin/python3.7
 import subprocess
-#import os
+import configparser
+import ast
 from multiprocessing import Pool
 
-monitor_module = {"smart": "3600", "network": "3600", "apcups": "3600"}
+# Config file location
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+
 processes = []
+
 def run_process(process):
-	#os.system('{}'.format(process))
-	subprocess.run(['/bin/bash', process])
+    subprocess.run([process, 'check'])
 
-#processes = len(monitor_module)		# How many processor will be needed.
-#pool = Pool(processes=2)		# How many processor will be needed in the pool.
+for x in ast.literal_eval(config['DEFAULT']['MOD_ENABLED']):
+    modpath = config['DEFAULT']['MOD_PATH'] + x
+    processes.append(modpath)
 
-for x, y in monitor_module.items():
-	modpath = "/opt/monigraf/modules/" + x
-	processes.append(modpath)
-
-pool = Pool(processes=3)
+pool = Pool(processes=len(processes))
 pool.map(run_process, processes)

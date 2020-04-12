@@ -1,46 +1,74 @@
-#!/bin/bash
-source /etc/monigraf/monigraf.conf
-source /etc/monigraf/modules.d/smart.conf
-function Check() {
-	while IFS= read -r diskLine; do
-		diskLine=`echo "$diskLine" | tr -s ' '`
-		uuid=`echo $diskLine | cut -d ' ' -f3`
-		if ! [[ "$uuid" =~ "-" ]]; then uuid=`echo $diskLine | cut -d ' ' -f4`; fi
-		dev=`echo $diskLine | cut -d ' ' -f1 | tr -d [[:digit:]]`
-		tbw=`/usr/sbin/smartctl -A /dev/${dev} | awk '/^241/ { print ""$10"" }'`
-		if [[ "$tbw" == "" ]]; then
-			tbw=-1
-		elif [[ $tbw < 3000000 ]]; then
-			tbw=`echo $(($tbw * 1000000000 / 512))`
-		fi
-		temp=`/usr/sbin/smartctl -A /dev/${dev} | awk '/^194/ { print ""$10"" }'`; if [[ "$temp" == "" ]]; then temp=`/usr/sbin/smartctl -A /dev/${dev} | awk '/^190/ { print ""$10"" }'`; fi
-		poweron=`/usr/sbin/smartctl -A /dev/${dev} | awk '/^  9/ { print ""$10"" }'`
-		health=`/usr/sbin/smartctl -A /dev/${dev} | awk '/^231/ { print ""$4"" }'`; if [[ "$health" == "" ]]; then health=`/usr/sbin/smartctl -A /dev/${dev} | awk '/^177/ { print ""$4"" }'`; if [[ "$health" == "" ]]; then health=-1; fi; fi
-		influx -host $influxserver -username $userdb -password "$password" -database $dbname -execute "INSERT smart,host=$HOSTNAME,dev_uuid=$uuid tbw=$tbw,temp=$temp,power_on_hours=$poweron,life=$health"
-	done <<< "$listDisk"
-}
+#!/usr/bin/python3.7
+import time
+import sys
+import configparser
+import socket
+from pySMART import DeviceList
+from BodyBuilder import BodyBuilder
 
-function Refresh() {
-	influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM smart_info WHERE host = $HOSTNAME"
-	while IFS= read -r diskLine; do
-                diskLine=`echo "$diskLine" | tr -s ' '`
-                uuid=`echo $diskLine | cut -d ' ' -f3`
-                if ! [[ "$uuid" =~ "-" ]]; then uuid=`echo $diskLine | cut -d ' ' -f4`; fi
-                dev=`echo $diskLine | cut -d ' ' -f1 | tr -d [[:digit:]]`
-		devModel=`/usr/sbin/smartctl -i /dev/${dev} | grep "Device Model:" | tr -s ' ' | cut -d ' ' -f3-`
-		sn=`/usr/sbin/smartctl -i /dev/${dev} | grep "Serial Number:" | tr -s ' ' | cut -d ' ' -f3`
-		type=`/usr/sbin/smartctl -i /dev/${dev} | grep "Rotation Rate:" | tr -s ' ' | cut -d ' ' -f3-`
-		capacity=`/usr/sbin/smartctl -i /dev/${dev} | grep "User Capacity:" | tr -s ' ' | cut -d '[' -f2 | cut -d ']' -f1 | tr -d ' '`
-                influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT smart_info,host=$HOSTNAME dev_uuid=\"$uuid\",dev_model=\"$devModel\",sn=\"$sn\",capacity=\"$capacity\",dev=\"$dev\",type=\"$type\""
-        done <<< "$listDisk"
-}
-if [[ "$1" == "--refresh" ]]; then
-        listDisk=`lsblk -fs --list | grep -E "ext4|LVM2_member" | sort -u | grep ^sd`
-	Refresh
-        exit
-fi
-while true; do
-	listDisk=`lsblk -fs --list | grep -E "ext4|LVM2_member" | sort -u | grep ^sd`
-	Check
-	sleep $delay
-done
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
+
+def Check():
+    for i in range(len(listDrives)):
+        sn = listDrives[i].serial
+        # Try to get attributes from drives.
+        # TBW
+        try:
+            tbw = int(listDrives[i].attributes[241].raw)
+            if tbw < 3000000: tbw = tbw * 1000000000 / 512
+        except AttributeError: tbw = -1
+        # Temperature
+        try: temp = listDrives[i].attributes[194].raw
+        except AttributeError: temp = listDrives[i].attributes[190].raw
+        poweron = listDrives[i].attributes[9].raw
+        # Health
+        #try:
+        #    health = str(listDrives[i].attributes[231])
+        #    print(health)
+        #    health = ' '.join(str(health).split()).split(' ')[2]
+        #except AttributeError: pass
+        try:
+            health = str(listDrives[i].attributes[177])
+            health = ' '.join(health.split()).split(' ')[2]
+        except: health = int(-1)
+        
+        dbinfo.add_tag("serial_number", sn)
+        dbinfo.add_field("tbw", float(tbw))
+        dbinfo.add_field("temperature", int(temp))
+        dbinfo.add_field("power_on_hours", float(poweron))
+        dbinfo.add_field("health", int(health))
+        dbinfo.Add()
+    
+def Refresh():
+    dbinfo.Delete()
+    for i in range(len(listDrives)):
+        # Get drive informations
+        sn = listDrives[i].serial                               
+        dev = listDrives[i].name
+        devModel = listDrives[i].model
+        devType = listDrives[i].is_ssd
+        if devType: devType = "SSD"
+        else: devType = "Hard Drive"
+        capacity = listDrives[i].capacity
+        firmware = listDrives[i].firmware
+                                                       
+        dbinfo.add_field("model", devModel)
+        dbinfo.add_field("drive", dev)
+        dbinfo.add_field("serial_number", sn)
+        dbinfo.add_field("capacity", capacity)
+        dbinfo.add_field("type", devType)
+        dbinfo.add_field("firmware", firmware)
+        dbinfo.Add()
+
+listDrives = DeviceList().devices
+if sys.argv[1] == "refresh":
+    dbinfo = BodyBuilder.BuildBody("smart_info", host)
+    Refresh()
+    exit()
+
+dbinfo = BodyBuilder.BuildBody("smart", host)
+while True:
+    Check()
+    time.sleep(config.getint('smart','delay'))
