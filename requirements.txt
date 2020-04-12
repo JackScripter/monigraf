@@ -1,3 +1,4 @@
 influxdb==5.2.3
 netifaces==0.10.9
 psutil==5.7.0
+pySMART==1.0

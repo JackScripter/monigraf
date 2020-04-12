@@ -11,7 +11,7 @@ config.read('/etc/monigraf/monigraf.ini')
 processes = []
 
 def run_process(process):
-    subprocess.run([process])
+    subprocess.run([process, 'check'])
 
 for x in ast.literal_eval(config['DEFAULT']['MOD_ENABLED']):
     modpath = config['DEFAULT']['MOD_PATH'] + x

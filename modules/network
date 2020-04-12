@@ -43,8 +43,7 @@ def Check(net):
 
 def Refresh():
     dbinfo.Delete()
-    #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "DELETE FROM network_info WHERE host = $HOSTNAME"
-    for net in ast.literal_eval(listNet):
+    for net in ast.literal_eval(str(listNet)):
         dev = subprocess.run(['/usr/bin/lspci'], stdout=subprocess.PIPE).stdout.decode('utf-8')
         for line in dev.splitlines():
             if re.search('Ethernet', line):
@@ -62,10 +61,9 @@ def Refresh():
         dbinfo.add_field("duplex", duplex)
         dbinfo.add_field("controller", controller)
         dbinfo.add_field("driver", driver)
-        dbinfo.add_field("dev", net)
+        dbinfo.add_field("interface", net)
         dbinfo.add_field("mtu", mtu)
         dbinfo.Add()
-        #influx -host $influxserver -username $userdb -password $password -database $dbname -execute "INSERT network_info,host=$HOSTNAME mac=\"$macaddr\",speed=\"$speed\",duplex=\"$duplex\",mtu=\"$mtu\",controller=\"$controller\",driver=\"$driver\",dev=\"$net\""
 
 listNet = GetDevices()
 if sys.argv[1] == "refresh":
@@ -75,6 +73,6 @@ if sys.argv[1] == "refresh":
 
 dbinfo = BodyBuilder.BuildBody("network", host)
 while True:
-    for net in ast.literal_eval(listNet):
+    for net in ast.literal_eval(str(listNet)):
         Check(net)
     time.sleep(config.getint('network','delay'))
