@@ -1,0 +1,44 @@
+#!/usr/bin/python3.7
+import re
+import time
+import sys
+import configparser
+import socket
+import subprocess
+from BodyBuilder import BodyBuilder
+
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
+
+def Check():
+    for line in upsLine.splitlines():
+        if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_tag("sn", sn)
+        elif re.search('LINEV', line): inputVolt = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("volt", inputVolt)
+        elif re.search('BCHARGE', line): battCharge = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("charge", battCharge)
+        elif re.search('LOADPCT', line): load = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("load", load)
+        elif re.search('TIMELEFT', line): timeLeft = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("time_left", timeleft)
+    dbinfo.Add()
+
+def Refresh():
+    dbinfo.Delete()
+    for line in upsLine.splitlines():
+        if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_field("sn", sn)
+        elif re.search('MODEL', line): model = line.split(': ')[1]; dbinfo.add_field("model", model)
+        elif re.search('BATTDATE', line): battdate = line.split(': ')[1]; dbinfo.add_field("battdate", battdate)
+        elif re.search('NOMPOWER', line): maxpower = line.split(': ')[1]; dbinfo.add_field("maxpower", maxpower)
+        elif re.search('VERSION', line): version = line.split(': ')[1]; dbinfo.add_field("version", version)
+        elif re.search('UPSNAME', line): upsName = line.split(': ')[1]; dbinfo.add_field("ups_name", upsName)
+    dbinfo.Add()
+
+listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+upsLine = ' '.join(listUPS.split(' '))
+if sys.argv[1] == "refresh":
+    dbinfo = BodyBuilder.BuildBody("apcups_info", host)
+    Refresh()
+    exit()
+
+dbinfo = BodyBuilder.BuildBody("apcups", host)
+while True:
+    Check()
+    time.sleep(config.getint('apcups','delay'))
