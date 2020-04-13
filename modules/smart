@@ -62,13 +62,14 @@ def Refresh():
         dbinfo.add_field("firmware", firmware)
         dbinfo.Add()
 
-listDrives = DeviceList().devices
 if sys.argv[1] == "refresh":
+    listDrives = DeviceList().devices
     dbinfo = BodyBuilder.BuildBody("smart_info", host)
     Refresh()
     exit()
 
 dbinfo = BodyBuilder.BuildBody("smart", host)
 while True:
+    listDrives = DeviceList().devices
     Check()
     time.sleep(config.getint('smart','delay'))
