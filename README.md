@@ -2,8 +2,16 @@
 Monitor Linux server and more !
 
 ## Installation
-in progress...
+### Dependencies
+* python3.7
+* python3-pip
 
+### Installation
+```bash
+git clone https://github.com/JackScripter/monigraf.git
+cd monigraf
+sudo bash install.sh
+```
 ## Configuration
 ### DEFAULT
 - MOD_PATH: Location of modules. Default: /opt/monigraf/modules/
@@ -19,12 +27,32 @@ in progress...
 Modules configuration
 --
 ### network
+Get Rx and Tx usage.\
+Configurable variables:
 - delay
 - interfaces: Monitor specified interfaces. Format: ["eth0","eth1"] or all to monitor all interfaces. Default: all
 
 ### apcups
+Monitor connected APC UPS:
+- Inline voltage
+- Load
+- Timeleft
+
+Configurable variables:
 - delay
 
 ### smart
+Monitor S.M.A.R.T of hard drive.\
+Configurable variables:
 - delay
 - drives: Specifies each drive you want to monitor. Format: ["sda","sdc"]. Default: all
+
+### system
+This module monitor basic system statistics including:
+- CPU core usage
+- System temperature (depending of your hardware, you may have less or more sensors)
+- Memory usage
+- Filesystem usage
+
+Configurable variables:
+- delay
