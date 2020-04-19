@@ -71,7 +71,8 @@ def Refresh():
         if re.search('^CPU\(s\):', line): cpuCores = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_total_core", cpuCores)
         elif re.search('L1d cache:', line): l1cache = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_L1_cache", l1cache)
         elif re.search('L2 cache:', line): l2cache = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_L2_cache", l2cache)
-        elif re.search('L3 cache:', line): l3cache = line.split(': ')[1].replace(' ', ''); if l3cache is "": l3cache = "-"
+        elif re.search('L3 cache:', line): l3cache = line.split(': ')[1].replace(' ', '')
+    if l3cache is "": l3cache = "-"
     dbinfo.add_field("cpu_L3_cache", l3cache)
     dbinfo.add_tag("part", "cpu")
     dbinfo.Add()
