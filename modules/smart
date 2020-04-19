@@ -33,19 +33,18 @@ def Check():
             health = str(listDrives[i].attributes[177])
             health = ' '.join(health.split()).split(' ')[2]
         except: health = int(-1)
-        
         dbinfo.add_tag("serial_number", sn)
         dbinfo.add_field("tbw", float(tbw))
         dbinfo.add_field("temperature", int(temp))
         dbinfo.add_field("power_on_hours", float(poweron))
         dbinfo.add_field("health", int(health))
         dbinfo.Add()
-    
+
 def Refresh():
     dbinfo.Delete()
     for i in range(len(listDrives)):
         # Get drive informations
-        sn = listDrives[i].serial                               
+        sn = listDrives[i].serial
         dev = listDrives[i].name
         devModel = listDrives[i].model
         devType = listDrives[i].is_ssd
@@ -53,7 +52,7 @@ def Refresh():
         else: devType = "Hard Drive"
         capacity = listDrives[i].capacity
         firmware = listDrives[i].firmware
-                                                       
+
         dbinfo.add_field("model", devModel)
         dbinfo.add_field("drive", dev)
         dbinfo.add_field("serial_number", sn)

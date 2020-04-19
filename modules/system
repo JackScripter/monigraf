@@ -1,0 +1,113 @@
+#!/usr/bin/python3.7
+import re
+import time
+import sys
+import configparser
+import socket
+import subprocess
+import psutil
+from BodyBuilder import BodyBuilder
+
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
+
+def Check():
+    # Temperature sensors
+    sensorTemp = psutil.sensors_temperatures()
+    sensorDevice = sensorTemp.keys()        # Get elements that provides temp.
+    # Loop through each element and retrieve values
+    for sensor in sensorDevice:
+        dbinfo.add_tag("temp_sensor", sensor)
+        for i in range(len(sensorTemp[sensor])):
+            sensorLabel = sensorTemp[sensor][i].label
+            if sensorLabel is "": sensorLabel = "Unknown_Sensor_Label"
+            dbinfo.add_field(sensorLabel, float(sensorTemp[sensor][i].current))
+        dbinfo.Add()
+    # CPU Usage
+    dbinfo.del_tag("temp_sensor")
+    dbinfo.add_tag("usage", "core")
+    cpuUsage = psutil.cpu_percent(percpu=True)
+    for i in range(len(cpuUsage)):
+        coreLabel = "Core_" + str(i)
+        dbinfo.add_field(coreLabel, float(cpuUsage[i]))
+    dbinfo.Add()
+    # Memory Usage
+    dbinfo.add_tag("usage", "memory")
+    memUsage = psutil.virtual_memory()
+    for i in range(len(memUsage)):
+        dbinfo.add_field("total", int(memUsage[0]))
+        dbinfo.add_field("available", int(memUsage[1]))
+        dbinfo.add_field("used", int(memUsage[3]))
+        dbinfo.add_field("free", int(memUsage[4]))
+        dbinfo.add_field("active", int(memUsage[5]))
+        dbinfo.add_field("inactive", int(memUsage[6]))
+        dbinfo.add_field("buffers", int(memUsage[7]))
+        dbinfo.add_field("cached", int(memUsage[8]))
+        dbinfo.add_field("shared", int(memUsage[9]))
+        dbinfo.add_field("slab", int(memUsage[10]))
+    dbinfo.Add()
+    # Filesystem Usage
+    dbinfo.add_tag("usage", "filesystem")
+    mountList = psutil.disk_partitions()
+    for i in range(len(mountList)):
+        mountpoint = mountList[i].mountpoint
+        dbinfo.add_tag("mountpoint", mountpoint)
+        dbinfo.add_field("total", psutil.disk_usage(mountpoint).total)
+        dbinfo.add_field("used", psutil.disk_usage(mountpoint).used)
+        dbinfo.Add()
+
+def Refresh():
+    dbinfo.Delete()
+    lscpuOut = ' '.join(subprocess.run(['/usr/bin/lscpu'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))       # Get more info about CPU.
+    # Parse CPU infos
+    for line in cpuInfos.splitlines():
+        if re.search('ID:', line): cpuid = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_id", cpuid)
+        elif re.search('Family:', line): family = line.split(': ')[1]; dbinfo.add_field("cpu_family", family)
+        elif re.search('Version:', line): cpuModel = line.split(': ')[1]; dbinfo.add_field("cpu_model", cpuModel)
+        elif re.search('Upgrade:', line): cpuSocket = line.split(': ')[1]; dbinfo.add_field("cpu_socket", cpuSocket)
+    l3cache = "-"   # Default value if L3 cache is not provided
+    for line in lscpuOut.splitlines():
+        if re.search('^CPU\(s\):', line): cpuCores = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_total_core", cpuCores)
+        elif re.search('L1d cache:', line): l1cache = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_L1_cache", l1cache)
+        elif re.search('L2 cache:', line): l2cache = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_L2_cache", l2cache)
+        elif re.search('L3 cache:', line): l3cache = line.split(': ')[1].replace(' ', ''); if l3cache is "": l3cache = "-"
+    dbinfo.add_field("cpu_L3_cache", l3cache)
+    dbinfo.add_tag("part", "cpu")
+    dbinfo.Add()
+    # Parse Motherboard infos
+    for line in moboInfos.splitlines():
+        if re.search('Manufacturer:', line): moboManuf = line.split(': ')[1]; dbinfo.add_field("mobo_manufacturer", moboManuf)
+        elif re.search('Product Name:', line): moboModel = line.split(': ')[1]; dbinfo.add_field("mobo_model", moboModel)
+        elif re.search('Version:', line): moboVersion = line.split(': ')[1]; dbinfo.add_field("mobo_version", moboVersion)
+        elif re.search('Serial Number:', line): moboSN = line.split(': ')[1]; dbinfo.add_field("mobo_serial_number", moboSN)
+    dbinfo.add_tag("part", "mobo")
+    dbinfo.Add()
+    dbinfo.add_tag("part", "mem")
+    # Parse memory infos
+    for line in memInfos.splitlines():
+        if re.search('Size:', line): memSize = line.split(': ')[1]; dbinfo.add_field("mem_size", memSize)
+        elif re.search('Form Factor:', line): memFF = line.split(': ')[1]; dbinfo.add_field("mem_form_factor", memFF)
+        elif re.search('Bank Locator:', line): memLocation = line.split(': ')[1]; dbinfo.add_field("mem_location", memLocation)
+        elif re.search('Type:', line): memType = line.split(': ')[1]; dbinfo.add_field("mem_type", memType)
+        elif re.search('Speed:', line): memSpeed = line.split(': ')[1]; dbinfo.add_field("mem_speed", memSpeed)
+        elif re.search('Serial Number:', line): memSN = line.split(': ')[1]; dbinfo.add_field("mem_serial_number", memSN)
+        elif re.search('Part Number:', line):
+            memPartNo = line.split(': ')[1]
+            dbinfo.add_field("mem_part_number", memPartNo)
+            dbinfo.Add()
+
+    #dbinfo.Add()
+
+cpuInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '4'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
+moboInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '2'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
+memInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '17'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
+if sys.argv[1] == "refresh":
+    dbinfo = BodyBuilder.BuildBody("system_info", host)
+    Refresh()
+    exit()
+
+dbinfo = BodyBuilder.BuildBody("system", host)
+while True:
+    Check()
+    time.sleep(config.getint('system','delay'))
