@@ -132,9 +132,7 @@ This measurement is created or updated when you run `/opt/monigraf/smart refresh
 | host			| _hostname_	| Server hostname				|
 | mountpoint	| _mountpoint_	| Mountpoint exemple: /, /tmp	|
 | temp_sensor	| _sensor_		| All your hardware sensor.<br>Depending of your hardware, you may have less or more sensors. |
-| usage			| * core		| You can use one of these tags to graph easily |
-|				| * memory		|								|
-|				| * filesystem	|								|
+| usage			| <ul><li>core</li><li>memory</li><li>filesystem</li></ul>	| You can use one of these tags to graph easily |
 
 #### Field table
 You will find other field that are not listed below depending of your hardware.
@@ -159,9 +157,7 @@ This measurement is created or updated when you run `/opt/monigraf/system refres
 | Key		| Values		| Description						|
 |:---------:|:-------------:| --------------------------------- |
 | host		| _hostname_	| Server hostname					|
-| part		| * cpu			| Information related to these parts | 
-|			| * mobo		|									|
-|			| * mem			|									|
+| part		| <ul><li>cpu</li><li>mobo</li><li>mem</li></ul>	| Information related to these parts | 
 
 #### Field table
 | Field				| Type		| Description							|
