@@ -12,6 +12,9 @@ git clone https://github.com/JackScripter/monigraf.git
 cd monigraf
 sudo bash install.sh
 ```
+When you run the program for the first time, you will need to create the module info database in which you will find devices specifications.\
+For each module that you want to enable, run something like `/./opt/monigraf/network refresh`.
+
 ## Configuration
 ### DEFAULT
 - MOD_PATH: Location of modules. Default: /opt/monigraf/modules/
