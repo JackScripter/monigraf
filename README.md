@@ -59,3 +59,160 @@ This module monitor basic system statistics including:
 
 Configurable variables:
 - delay
+
+# InfluxDB reference
+This part will be useful if you want to create dashboard.
+## network
+#### Tag table
+| Key		| Values		| Description				|
+|:---------:|:-------------:| ------------------------- |
+| host		| _hostname_ 	| Server hostname			|
+| mac		| _mac_ 		| Device MAC address		|
+
+#### Field table
+| Field		| Type	| Description						|
+|:---------:|:-----:| --------------------------------- |
+| rx_bytes	| float	| Receive bytes on interface		|
+| tx_bytes	| float	| Transmitted bytes on interface	|
+
+## network_info
+This measurement is created or updated when you run `/opt/monigraf/network refresh`
+#### Tag table
+| Key		| Values		| Description				|
+|:---------:|:-------------:| ------------------------- |
+| host		| _hostname_	| Server hostname			|
+
+#### Field table
+| Field			| Type		| Description						|
+|:-------------:|:---------:| --------------------------------- |
+| controller	| string	| Actually the device controller	|
+| driver		| string	| Driver exemple: e1000				|
+| duplex		| string	| FULL or HALF duplex mode			|
+| interface		| string	| Interface name exemple: eth0		|
+| mac			| string	| MAC address						|
+| mtu			| integer	| MTU value							|
+| speed			| integer	| Interface operating speed			|
+
+## smart
+#### Tag table
+| Key			| Values		| Description				|
+|:-------------:|:-------------:| ------------------------- |
+| host			| _hostname_	| Server hostname			|
+| serial_number	| _drive_sn_	| Drive serial number		|
+
+#### Field table
+| Field			| Type		| Description								|
+|:-------------:|:---------:| ----------------------------------------- |
+| health		| integer	| SSD ONLY ! Health in %. HDD will return -1|
+| power_on_hours| float		| How much time the drive is up in hours	|
+| tbw			| float		| Terabytes Written in bytes				|
+| temperature	| integer	| Drive temperature							|
+
+## smart_info
+This measurement is created or updated when you run `/opt/monigraf/smart refresh`
+#### Tag table
+| Key		| Values     | Description			|
+|:---------:|:----------:| -------------------- |
+| host		| _hostname_ | Server hostname		| 
+
+#### Field table
+| Field			| Type		| Description						|
+|:-------------:|:---------:| --------------------------------- |
+| capacity		| string	| Drive capacity					|
+| drive			| string	| sda, sdb...						|
+| firmware		| string	| Firmware							|
+| model			| string	| Drive model						|
+| serial_number	| string	| Drive serial number				|
+| type			| string	| Returns SSD or Hard Drive			|
+
+## system
+#### Tag table
+| Key			| Values		| Description					|
+|:-------------:|:-------------:| ----------------------------- |
+| host			| _hostname_	| Server hostname				|
+| mountpoint	| _mountpoint_	| Mountpoint exemple: /, /tmp	|
+| temp_sensor	| _sensor_		| All your hardware sensor.<br>Depending of your hardware, you may have less or more sensors. |
+| usage			| * core		| You can use one of these tags to graph easily |
+|				| * memory		|								|
+|				| * filesystem	|								|
+
+#### Field table
+You will find other field that are not listed below depending of your hardware.
+
+| Field			| Type		| Description																		|
+|:-------------:|:---------:| --------------------------------------------------------------------------------- |
+| Core_*		| float		| Depending of the tag, it can be temperature or core usage 						|
+| active		| integer	| Memory that has been used more recently and usually not swapped out or reclaimed	|
+| available		| integer	| An estimate of how much memory is available for starting new applications, without swapping |
+| buffers		| integer	| Memory in buffer cache, so relatively temporary storage for raw disk blocks		|
+| cached		| integer	| Memory in the pagecache (Diskcache and Shared Memory								|
+| free			| integer	| The amount of physical memory not used by the system								|
+| inactive		| integer	| Memory that has not been used recently and can be swapped out or reclaimed		|
+| shared		| integer	| Total used shared memory															|
+| slab			| integer	| In-kernel data structures cache													|
+| total			| integer	| Total usable memory																|
+| used			| integer	| Total used memory																	|
+
+## system_info
+This measurement is created or updated when you run `/opt/monigraf/system refresh`
+#### Tag table
+| Key		| Values		| Description						|
+|:---------:|:-------------:| --------------------------------- |
+| host		| _hostname_	| Server hostname					|
+| part		| * cpu			| Information related to these parts | 
+|			| * mobo		|									|
+|			| * mem			|									|
+
+#### Field table
+| Field				| Type		| Description							|
+|:-----------------:|:---------:| ------------------------------------- |
+| cpu_L1_cache		| string	| CPU L1 Cache							|
+| cpu_L2_cache		| string	| CPU L2 Cache							|
+| cpu_L3_cache		| string	| CPU L3 Cache							|
+| cpu_family		| string	| CPU family							|
+| cpu_id			| string	| Just an ID to make something unique in this measurement. This value is pretty useless |
+| cpu_model			| string	| CPU model								|
+| cpu_socket		| string	| CPU socket, like AM4 or LGA2011		|
+| cpu_total_core	| string	| Total number of physical and virtual core |
+| mem_location		| string	| Memory location. On which slot.		|
+| mem_part_number	| string	| Memory part number					|
+| mem_serial_number	| string	| Memory serial number					|
+| mem_size			| string	| Memory size. Exemple 8192 MB			|
+| mem_speed			| string	| Memory speed							|
+| mem_type			| string	| Memory type. DDR3, DDR4...			|
+| mobo_manufacturer	| string	| Motherboard manufacturer				|
+| mobo_model		| string	| Motherboard model						|
+| mobo_serial_number| string	| Motherboard serial model				|
+| mobo_version		| string	| Motherboard version/revision			|
+
+## apcups
+#### Tag table
+| Key			| Values		| Description							|
+|:-------------:|:-------------:| ------------------------------------- |
+| host			| _hostname_	| Server hostname						|
+| serial_number	| _serial_number| APC UPS serial number					|
+
+#### Field table
+| Field			| Type		| Description								|
+|:-------------:|:---------:| ----------------------------------------- |
+| batt_charge	| float		| Percent of battery charged				|
+| inline_volt	| float		| Current inline voltage. In volt.			|
+| load			| float		| UPS load in percent.						|
+| time_left		| float		| UPS on battery timeleft 					|
+
+## apcups_info
+This measurement is created or updated when you run `/opt/monigraf/apcups refresh`
+#### Tag table
+| Key	| Values		| Description		|
+|:-----:|:-------------:| ----------------- |
+| host	| _hostname_	| Server hostname	|
+
+#### Field table
+| Field			| Type		| Description					|
+|:-------------:|:---------:| ----------------------------- |
+| batt_date		| string	| Battery date					|
+| maxpower		| string	| UPS max power output			|
+| model			| string	| UPS model						|
+| serial_number	| string	| UPS serial number				|
+| ups_name		| string	| UPS name						|
+| version		| string	| UPS driver/program version	|	
