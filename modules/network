@@ -8,7 +8,6 @@ import socket
 import subprocess
 import psutil
 import netifaces
-#from BodyBuilder import BodyBuilder
 from ES import ES
 
 config = configparser.ConfigParser()
@@ -38,12 +37,10 @@ def Check(net):
     pre_data = {}       # Create empty dict to store data.
     pre_data['rx_bytes'] = float(rx_bytes_now) - float(rx_bytes_last)  # Calculate average bytes per seconds.
     pre_data['tx_bytes'] = float(tx_bytes_now) - float(tx_bytes_last)     # Calculate average bytes per seconds.
-    #dbinfo.add_tag("mac", macaddr)
     pre_data['port'] = net
     dbinfo.add_listdata("interfaces", pre_data)
 
 def Refresh():
-    #dbinfo.Delete()
     for net in ast.literal_eval(str(listNet)):
         pre_data = {}
         dev = subprocess.run(['/usr/bin/lspci'], stdout=subprocess.PIPE).stdout.decode('utf-8')

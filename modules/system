@@ -6,7 +6,7 @@ import configparser
 import socket
 import subprocess
 import psutil
-from BodyBuilder import BodyBuilder
+from ES import ES
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
@@ -18,97 +18,96 @@ def Check():
     sensorDevice = sensorTemp.keys()        # Get elements that provides temp.
     # Loop through each element and retrieve values
     for sensor in sensorDevice:
-        dbinfo.add_tag("temp_sensor", sensor)
+        data = {}
+        data['item'] = sensor
         for i in range(len(sensorTemp[sensor])):
             sensorLabel = sensorTemp[sensor][i].label
             if sensorLabel is "": sensorLabel = "Unknown_Sensor_Label"
-            dbinfo.add_field(sensorLabel, float(sensorTemp[sensor][i].current))
-        dbinfo.Add()
+            data[sensorLabel] = float(sensorTemp[sensor][i].current))
+        dbinfo.add_listdata("parts_sensors", data)
     # CPU Usage
-    dbinfo.del_tag("temp_sensor")
-    dbinfo.add_tag("usage", "core")
+    data = {}
+    data['item'] = "cpu_usage"
     cpuUsage = psutil.cpu_percent(percpu=True)
     for i in range(len(cpuUsage)):
         coreLabel = "Core_" + str(i)
-        dbinfo.add_field(coreLabel, float(cpuUsage[i]))
-    dbinfo.Add()
+        data[coreLabel] = float(cpuUsage[i]))
+    dbinfo.add_listdata("parts_sensors". data)
     # Memory Usage
-    dbinfo.add_tag("usage", "memory")
+    data = {}
+    data['item'] = "mem_usage"
     memUsage = psutil.virtual_memory()
     for i in range(len(memUsage)):
-        dbinfo.add_field("total", int(memUsage[0]))
-        dbinfo.add_field("available", int(memUsage[1]))
-        dbinfo.add_field("used", int(memUsage[3]))
-        dbinfo.add_field("free", int(memUsage[4]))
-        dbinfo.add_field("active", int(memUsage[5]))
-        dbinfo.add_field("inactive", int(memUsage[6]))
-        dbinfo.add_field("buffers", int(memUsage[7]))
-        dbinfo.add_field("cached", int(memUsage[8]))
-        dbinfo.add_field("shared", int(memUsage[9]))
-        dbinfo.add_field("slab", int(memUsage[10]))
-    dbinfo.Add()
+        data['total'] = int(memUsage[0])
+        data['available'] = int(memUsage[1])
+        data['used'] = int(memUsage[3])
+        data['free'] = int(memUsage[4])
+        data['active'] = int(memUsage[5])
+        data['inactive'] = int(memUsage[6])
+        data['buffers'] = int(memUsage[7])
+        data['cached'] = int(memUsage[8])
+        data['shared'] = int(memUsage[9])
+        data['slab'] = int(memUsage[10])
+    dbinfo.add_listdata("parts_sensors", data)
     # Filesystem Usage
-    dbinfo.add_tag("usage", "filesystem")
     mountList = psutil.disk_partitions()
     for i in range(len(mountList)):
-        mountpoint = mountList[i].mountpoint
-        dbinfo.add_tag("mountpoint", mountpoint)
-        dbinfo.add_field("total", psutil.disk_usage(mountpoint).total)
-        dbinfo.add_field("used", psutil.disk_usage(mountpoint).used)
-        dbinfo.Add()
+        data = {}
+        data['item'] = "filesystem"
+        data['mountpoint'] = mountList[i].mountpoint
+        data['total'] = psutil.disk_usage(mountpoint).total)
+        data['used'] = psutil.disk_usage(mountpoint).used)
+        dbinfo.add_listdata("parts_sensors", data)
 
 def Refresh():
-    dbinfo.Delete()
     lscpuOut = ' '.join(subprocess.run(['/usr/bin/lscpu'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))       # Get more info about CPU.
+    data = {}
     # Parse CPU infos
     for line in cpuInfos.splitlines():
-        if re.search('ID:', line): cpuid = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_id", cpuid)
-        elif re.search('Family:', line): family = line.split(': ')[1]; dbinfo.add_field("cpu_family", family)
-        elif re.search('Version:', line): cpuModel = line.split(': ')[1]; dbinfo.add_field("cpu_model", cpuModel)
-        elif re.search('Upgrade:', line): cpuSocket = line.split(': ')[1]; dbinfo.add_field("cpu_socket", cpuSocket)
+        if re.search('ID:', line): data['cpu_id'] = line.split(': ')[1].replace(' ', '')
+        elif re.search('Family:', line): data['cpu_family'] = line.split(': ')[1]
+        elif re.search('Version:', line): data['cpu_model'] = line.split(': ')[1]
+        elif re.search('Upgrade:', line): data['cpu_socket'] = line.split(': ')[1]
     l3cache = "-"   # Default value if L3 cache is not provided
     for line in lscpuOut.splitlines():
-        if re.search('^CPU\(s\):', line): cpuCores = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_total_core", cpuCores)
-        elif re.search('L1d cache:', line): l1cache = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_L1_cache", l1cache)
-        elif re.search('L2 cache:', line): l2cache = line.split(': ')[1].replace(' ', ''); dbinfo.add_field("cpu_L2_cache", l2cache)
+        if re.search('^CPU\(s\):', line): data['cpu_total_core'] = line.split(': ')[1].replace(' ', '')
+        elif re.search('L1d cache:', line): data['cpu_L1_cache'] = line.split(': ')[1].replace(' ', '')
+        elif re.search('L2 cache:', line): data['cpu_L2_cache'] = line.split(': ')[1].replace(' ', '')
         elif re.search('L3 cache:', line): l3cache = line.split(': ')[1].replace(' ', '')
     if l3cache is "": l3cache = "-"
-    dbinfo.add_field("cpu_L3_cache", l3cache)
-    dbinfo.add_tag("part", "cpu")
-    dbinfo.Add()
+    data['cpu_L3_cache'] = l3cache
     # Parse Motherboard infos
     for line in moboInfos.splitlines():
-        if re.search('Manufacturer:', line): moboManuf = line.split(': ')[1]; dbinfo.add_field("mobo_manufacturer", moboManuf)
-        elif re.search('Product Name:', line): moboModel = line.split(': ')[1]; dbinfo.add_field("mobo_model", moboModel)
-        elif re.search('Version:', line): moboVersion = line.split(': ')[1]; dbinfo.add_field("mobo_version", moboVersion)
-        elif re.search('Serial Number:', line): moboSN = line.split(': ')[1]; dbinfo.add_field("mobo_serial_number", moboSN)
-    dbinfo.add_tag("part", "mobo")
-    dbinfo.Add()
-    dbinfo.add_tag("part", "mem")
+        if re.search('Manufacturer:', line): data['mobo_manufacturer'] = line.split(': ')[1]
+        elif re.search('Product Name:', line): data['mobo_model'] = line.split(': ')[1]
+        elif re.search('Version:', line): data['mobo_version'] = line.split(': ')[1]
+        elif re.search('Serial Number:', line): data['mobo_serial_number'] = line.split(': ')[1]
     # Parse memory infos
     for line in memInfos.splitlines():
-        if re.search('Size:', line): memSize = line.split(': ')[1]; dbinfo.add_field("mem_size", memSize)
-        elif re.search('Form Factor:', line): memFF = line.split(': ')[1]; dbinfo.add_field("mem_form_factor", memFF)
-        elif re.search('Bank Locator:', line): memLocation = line.split(': ')[1]; dbinfo.add_field("mem_location", memLocation)
-        elif re.search('Type:', line): memType = line.split(': ')[1]; dbinfo.add_field("mem_type", memType)
-        elif re.search('Speed:', line): memSpeed = line.split(': ')[1]; dbinfo.add_field("mem_speed", memSpeed)
-        elif re.search('Serial Number:', line): memSN = line.split(': ')[1]; dbinfo.add_field("mem_serial_number", memSN)
-        elif re.search('Part Number:', line):
-            memPartNo = line.split(': ')[1]
-            dbinfo.add_field("mem_part_number", memPartNo)
-            dbinfo.Add()
-
-    #dbinfo.Add()
+        if re.search('Size:', line): data['mem_size'] = line.split(': ')[1]
+        elif re.search('Form Factor:', line): data['mem_form_factor'] = line.split(': ')[1]
+        elif re.search('Bank Locator:', line): data['mem_location'] = line.split(': ')[1]
+        elif re.search('Type:', line): data['mem_type'] = line.split(': ')[1]
+        elif re.search('Speed:', line): data['mem_speed'] = line.split(': ')[1]
+        elif re.search('Serial Number:', line): data['mem_serial_number'] = line.split(': ')[1]
+        elif re.search('Part Number:', line): data['mem_part_number'] = line.split(': ')[1]
 
 cpuInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '4'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
 moboInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '2'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
 memInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '17'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
 if sys.argv[1] == "refresh":
-    dbinfo = BodyBuilder.BuildBody("system_info", host)
+    dbinfo = ES.ES("monigraf-inventory")
+    dbinfo.create_list("system")
     Refresh()
+    dbinfo.add_listdata("system", data)
+    dbinfo.add_data("host", host)
+    dbinfo.send()
     exit()
 
-dbinfo = BodyBuilder.BuildBody("system", host)
 while True:
+    dbinfo = ES.ES("monigraf-system")
+    dbinfo.create_list("parts_sensors")
     Check()
+    dbinfo.add_data("host", host)
+    dbinfo.send()
     time.sleep(config.getint('system','delay'))

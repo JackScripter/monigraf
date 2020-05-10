@@ -13,7 +13,7 @@ host = socket.gethostname()
 def Check():
     for i in range(len(listDrives)):
         data = {}       # Empty dict to store data to post
-        data['device'] = listDrives[i].name
+        data['serial_number'] = listDrives[i].serial
         # Try to get attributes from drives.
         # TBW
         try:

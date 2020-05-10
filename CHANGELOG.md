@@ -5,6 +5,7 @@
 - Added Elasticsearch as a new datasource !
 ### Fixes
 - Store temporary data in a dictonary instead of multiple single variable
+- Replaced BodyBuilder with ES
 
 ## [0.1.1] - 2020-05-09
 ### New modules
