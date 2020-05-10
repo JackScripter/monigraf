@@ -55,8 +55,8 @@ def Check():
         data = {}
         data['item'] = "filesystem"
         data['mountpoint'] = mountList[i].mountpoint
-        data['total'] = psutil.disk_usage(mountpoint).total)
-        data['used'] = psutil.disk_usage(mountpoint).used)
+        data['total'] = psutil.disk_usage(mountpoint).total
+        data['used'] = psutil.disk_usage(mountpoint).used
         dbinfo.add_listdata("parts_sensors", data)
 
 def Refresh():
