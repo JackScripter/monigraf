@@ -18,24 +18,34 @@ def Check():
     sensorDevice = sensorTemp.keys()        # Get elements that provides temp.
     # Loop through each element and retrieve values
     for sensor in sensorDevice:
-        data = {}
-        data['sensor'] = sensor
         for i in range(len(sensorTemp[sensor])):
+            dbinfo = ES.ES("monigraf-system")
+            dbinfo.add_data("host", host)
+            dbinfo.create_list("sensors")
+            data = {}
+            data['sensor'] = sensor
             sensorLabel = sensorTemp[sensor][i].label
             if sensorLabel is "": sensorLabel = "Unknown_Sensor_Label"
             data['value'] = float(sensorTemp[sensor][i].current)
             data['name'] = sensorLabel
-        dbinfo.add_listdata("sensors", data)
+            dbinfo.add_listdata("sensors", data)
+            dbinfo.send()
     # CPU Usage
-    data = {}
     cpuUsage = psutil.cpu_percent(percpu=True)
     for i in range(len(cpuUsage)):
         data = {}
+        dbinfo = ES.ES("monigraf-system")
+        dbinfo.add_data("host", host)
+        dbinfo.create_list("cpu_usage")
         data['core'] = str(i)
         data['value'] = float(cpuUsage[i])
         dbinfo.add_listdata("cpu_usage", data)
+        dbinfo.send()
     # Memory Usage
     data = {}
+    dbinfo = ES.ES("monigraf-system")
+    dbinfo.add_data("host", host)
+    dbinfo.create_list("mem_usage")
     memUsage = psutil.virtual_memory()
     for i in range(len(memUsage)):
         data['total'] = int(memUsage[0])
@@ -49,14 +59,19 @@ def Check():
         data['shared'] = int(memUsage[9])
         data['slab'] = int(memUsage[10])
     dbinfo.add_listdata("mem_usage", data)
+    dbinfo.send()
     # Filesystem Usage
     mountList = psutil.disk_partitions()
     for i in range(len(mountList)):
         data = {}
+        dbinfo = ES.ES("monigraf-system")
+        dbinfo.add_data("host", host)
+        dbinfo.create_list("filesystem")
         data['mountpoint'] = mountList[i].mountpoint
         data['total'] = psutil.disk_usage(data['mountpoint']).total
         data['used'] = psutil.disk_usage(data['mountpoint']).used
         dbinfo.add_listdata("filesystem", data)
+        dbinfo.send()
 
 def Refresh():
     lscpuOut = ' '.join(subprocess.run(['/usr/bin/lscpu'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))       # Get more info about CPU.
@@ -104,12 +119,5 @@ if sys.argv[1] == "refresh":
     exit()
 
 while True:
-    dbinfo = ES.ES("monigraf-system")
-    dbinfo.create_list("sensors")
-    dbinfo.create_list("cpu_usage")
-    dbinfo.create_list("mem_usage")
-    dbinfo.create_list("filesystem")
     Check()
-    dbinfo.add_data("host", host)
-    dbinfo.send()
     time.sleep(config.getint('system','delay'))

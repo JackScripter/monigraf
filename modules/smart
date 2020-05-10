@@ -13,6 +13,8 @@ host = socket.gethostname()
 def Check():
     for i in range(len(listDrives)):
         data = {}       # Empty dict to store data to post
+        dbinfo = ES.ES("monigraf-smart")
+        dbinfo.create_list("drives")
         data['serial_number'] = listDrives[i].serial
         # Try to get attributes from drives.
         # TBW
@@ -33,10 +35,14 @@ def Check():
         data['temperature'] = int(temp)
         data['health'] = int(health)
         dbinfo.add_listdata("drives", data)
+        dbinfo.add_data("host", host)
+        dbinfo.send()
 
 def Refresh():
     for i in range(len(listDrives)):
         data = {}
+        dbinfo = ES.ES("monigraf-inventory")
+        dbinfo.create_list("drives")
         # Get drive informations
         data['serial_number'] = listDrives[i].serial
         data['device'] = listDrives[i].name
@@ -46,22 +52,17 @@ def Refresh():
         else: data['type'] = "Hard Drive"
         data['capacity'] = listDrives[i].capacity
         data['firmware'] = listDrives[i].firmware
+        print(data)
+        dbinfo.add_data("host", host)
         dbinfo.add_listdata("drives", data)
+        dbinfo.send()
 
 if sys.argv[1] == "refresh":
     listDrives = DeviceList().devices
-    dbinfo = ES.ES("monigraf-inventory")
-    dbinfo.create_list("drives")
     Refresh()
-    dbinfo.add_data("host", host)
-    dbinfo.send()
     exit()
 
 while True:
     listDrives = DeviceList().devices
-    dbinfo = ES.ES("monigraf-smart")
-    dbinfo.create_list("drives")
     Check()
-    dbinfo.add_data("host", host)
-    dbinfo.send()
     time.sleep(config.getint('smart','delay'))

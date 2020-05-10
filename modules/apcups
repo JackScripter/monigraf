@@ -45,6 +45,7 @@ while True:
     listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
     upsLine = ' '.join(listUPS.split(' '))
     dbinfo = ES.ES("monigraf-apcups")
+    dbinfo.create_list("apcups")
     Check()
     dbinfo.add_data("host", host)
     dbinfo.send()
