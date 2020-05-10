@@ -23,7 +23,7 @@ def Check():
         for i in range(len(sensorTemp[sensor])):
             sensorLabel = sensorTemp[sensor][i].label
             if sensorLabel is "": sensorLabel = "Unknown_Sensor_Label"
-            data[sensorLabel] = float(sensorTemp[sensor][i].current))
+            data[sensorLabel] = float(sensorTemp[sensor][i].current)
         dbinfo.add_listdata("parts_sensors", data)
     # CPU Usage
     data = {}
@@ -31,7 +31,7 @@ def Check():
     cpuUsage = psutil.cpu_percent(percpu=True)
     for i in range(len(cpuUsage)):
         coreLabel = "Core_" + str(i)
-        data[coreLabel] = float(cpuUsage[i]))
+        data[coreLabel] = float(cpuUsage[i])
     dbinfo.add_listdata("parts_sensors". data)
     # Memory Usage
     data = {}
