@@ -8,7 +8,7 @@ Type=simple
 Restart=always
 RestartSec=1
 User=root
-ExecStart=/usr/bin/python3.7 /opt/monigraf/monigraf.py
+ExecStart=/usr/bin/env python3 /opt/monigraf/monigraf.py
 
 [Install]
 WantedBy=multi-user.target

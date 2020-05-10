@@ -1,8 +1,16 @@
 # Changelog
-## [0.1.1] - 2020-05-xx
+
+## [0.2.0] - 2020-xx-xx
+### New Features
+- Added Elasticsearch as a new datasource !
+### Fixes
+- Store temporary data in a dictonary instead of multiple single variable
+
+## [0.1.1] - 2020-05-09
 ### New modules
 - unbound
-- certificates
+### Fixes
+- Set shebang to /usr/bin/env python3 instead of /usr/bin/python3.7
 
 ## [0.1.0] - 2020-04-19
 ### New modules

@@ -1,10 +1,10 @@
-#!/usr/bin/python3.7
+#!/usr/bin/env python3
 import time
 import sys
 import configparser
 import socket
 from pySMART import DeviceList
-from BodyBuilder import BodyBuilder
+from ES import ES
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
@@ -12,7 +12,8 @@ host = socket.gethostname()
 
 def Check():
     for i in range(len(listDrives)):
-        sn = listDrives[i].serial
+        data = {}       # Empty dict to store data to post
+        data['device'] = listDrives[i].name
         # Try to get attributes from drives.
         # TBW
         try:
@@ -22,53 +23,45 @@ def Check():
         # Temperature
         try: temp = listDrives[i].attributes[194].raw
         except AttributeError: temp = listDrives[i].attributes[190].raw
-        poweron = listDrives[i].attributes[9].raw
+        data['power_on_hours'] = float(listDrives[i].attributes[9].raw)
         # Health
-        #try:
-        #    health = str(listDrives[i].attributes[231])
-        #    print(health)
-        #    health = ' '.join(str(health).split()).split(' ')[2]
-        #except AttributeError: pass
         try:
             health = str(listDrives[i].attributes[177])
             health = ' '.join(health.split()).split(' ')[2]
         except: health = int(-1)
-        dbinfo.add_tag("serial_number", sn)
-        dbinfo.add_field("tbw", float(tbw))
-        dbinfo.add_field("temperature", int(temp))
-        dbinfo.add_field("power_on_hours", float(poweron))
-        dbinfo.add_field("health", int(health))
-        dbinfo.Add()
+        data['tbw'] = float(tbw)
+        data['temperature'] = int(temp)
+        data['health'] = int(health)
+        dbinfo.add_listdata("drives", data)
 
 def Refresh():
-    dbinfo.Delete()
     for i in range(len(listDrives)):
+        data = {}
         # Get drive informations
-        sn = listDrives[i].serial
-        dev = listDrives[i].name
-        devModel = listDrives[i].model
+        data['serial_number'] = listDrives[i].serial
+        data['device'] = listDrives[i].name
+        data['model'] = listDrives[i].model
         devType = listDrives[i].is_ssd
-        if devType: devType = "SSD"
-        else: devType = "Hard Drive"
-        capacity = listDrives[i].capacity
-        firmware = listDrives[i].firmware
-
-        dbinfo.add_field("model", devModel)
-        dbinfo.add_field("drive", dev)
-        dbinfo.add_field("serial_number", sn)
-        dbinfo.add_field("capacity", capacity)
-        dbinfo.add_field("type", devType)
-        dbinfo.add_field("firmware", firmware)
-        dbinfo.Add()
+        if devType: data['type'] = "SSD"
+        else: data['type'] = "Hard Drive"
+        data['capacity'] = listDrives[i].capacity
+        data['firmware'] = listDrives[i].firmware
+        dbinfo.add_listdata("drives", data)
 
 if sys.argv[1] == "refresh":
     listDrives = DeviceList().devices
-    dbinfo = BodyBuilder.BuildBody("smart_info", host)
+    dbinfo = ES.ES("monigraf-inventory")
+    dbinfo.create_list("drives")
     Refresh()
+    dbinfo.add_data("host", host)
+    dbinfo.send()
     exit()
 
-dbinfo = BodyBuilder.BuildBody("smart", host)
 while True:
     listDrives = DeviceList().devices
+    dbinfo = ES.ES("monigraf-smart")
+    dbinfo.create_list("drives")
     Check()
+    dbinfo.add_data("host", host)
+    dbinfo.send()
     time.sleep(config.getint('smart','delay'))

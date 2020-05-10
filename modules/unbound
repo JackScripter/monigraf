@@ -1,11 +1,11 @@
-#!/usr/bin/python3.7
+#!/usr/bin/env python3
 import re
 import time
 import ast
 import configparser
 import socket
 import subprocess
-from BodyBuilder import BodyBuilder
+from ES import ES
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
@@ -31,9 +31,11 @@ def Check():
             else: continue
         dbinfo.Add()
 
-dbinfo = BodyBuilder.BuildBody("unbound", host)
 while True:
+    dbinfo = ES.ES("monigraf-unbound")
+    dbinfo.create_list("dns_servers")
     for host_dns in ast.literal_eval(str(config['unbound']['hosts'])):
+        
         dbinfo.add_tag("target", str(host_dns.split('@')[0]))
         listStats = subprocess.run(['/usr/sbin/unbound-control', '-s', host_dns, 'stats'], stdout=subprocess.PIPE).stdout.decode('utf-8')
         Check()

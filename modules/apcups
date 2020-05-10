@@ -1,46 +1,51 @@
-#!/usr/bin/python3.7
+#!/usr/bin/env python3
 import re
 import time
 import sys
 import configparser
 import socket
 import subprocess
-from BodyBuilder import BodyBuilder
+from ES import ES
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 host = socket.gethostname()
 
 def Check():
+    pre_data = {}
     for line in upsLine.splitlines():
-        if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_tag("serial_number", sn)
-        elif re.search('LINEV', line): inputVolt = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("inline_volt", float(inputVolt))
-        elif re.search('BCHARGE', line): battCharge = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("batt_charge", float(battCharge))
-        elif re.search('LOADPCT', line): load = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("load", float(load))
-        elif re.search('TIMELEFT', line): timeLeft = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("time_left", float(timeLeft))
-    dbinfo.Add()
+        if re.search('LINEV', line): pre_data['inline_volt'] = float(line.split(': ')[1].split(' ')[0])
+        elif re.search('BCHARGE', line): pre_data['batt_charge'] = float(line.split(': ')[1].split(' ')[0])
+        elif re.search('LOADPCT', line): pre_data['load'] = float(line.split(': ')[1].split(' ')[0])
+        elif re.search('TIMELEFT', line): pre_data['time_left'] = float(line.split(': ')[1].split(' ')[0])
+    dbinfo.add_listdata("apcups", pre_data)
 
 def Refresh():
-    dbinfo.Delete()
+    pre_data = {}
     for line in upsLine.splitlines():
-        if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_field("serial_number", sn)
-        elif re.search('MODEL', line): model = line.split(': ')[1]; dbinfo.add_field("model", model)
-        elif re.search('BATTDATE', line): battdate = line.split(': ')[1]; dbinfo.add_field("batt_date", battdate)
-        elif re.search('NOMPOWER', line): maxpower = line.split(': ')[1]; dbinfo.add_field("maxpower", maxpower)
-        elif re.search('VERSION', line): version = line.split(': ')[1]; dbinfo.add_field("version", version)
-        elif re.search('UPSNAME', line): upsName = line.split(': ')[1]; dbinfo.add_field("ups_name", upsName)
-    dbinfo.Add()
+        if re.search('SERIALNO', line): pre_data['serial_number'] = line.split(': ')[1]
+        elif re.search('MODEL', line): pre_data['model'] = line.split(': ')[1]
+        elif re.search('BATTDATE', line): pre_data['batt_date'] = line.split(': ')[1]
+        elif re.search('NOMPOWER', line): pre_data['maxpower'] = line.split(': ')[1]
+        elif re.search('VERSION', line): pre_data['version'] = line.split(': ')[1]
+        elif re.search('UPSNAME', line): pre_data['ups_name'] = line.split(': ')[1]
+    dbinfo.add_listdata("apcups", pre_data)
 
 if sys.argv[1] == "refresh":
+    dbinfo = ES.ES("monigraf-inventory")
+    dbinfo.create_list("apcups")
     listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
     upsLine = ' '.join(listUPS.split(' '))
-    dbinfo = BodyBuilder.BuildBody("apcups_info", host)
     Refresh()
+    dbinfo.add_data("host", host)
+    dbinfo.send()
     exit()
 
-dbinfo = BodyBuilder.BuildBody("apcups", host)
 while True:
     listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
     upsLine = ' '.join(listUPS.split(' '))
+    dbinfo = ES.ES("monigraf-apcups")
     Check()
+    dbinfo.add_data("host", host)
+    dbinfo.send()
     time.sleep(config.getint('apcups','delay'))
