@@ -32,7 +32,7 @@ def Check():
     for i in range(len(cpuUsage)):
         coreLabel = "Core_" + str(i)
         data[coreLabel] = float(cpuUsage[i])
-    dbinfo.add_listdata("parts_sensors". data)
+    dbinfo.add_listdata("parts_sensors", data)
     # Memory Usage
     data = {}
     data['item'] = "mem_usage"
@@ -55,8 +55,8 @@ def Check():
         data = {}
         data['item'] = "filesystem"
         data['mountpoint'] = mountList[i].mountpoint
-        data['total'] = psutil.disk_usage(mountpoint).total
-        data['used'] = psutil.disk_usage(mountpoint).used
+        data['total'] = psutil.disk_usage(data['mountpoint']).total
+        data['used'] = psutil.disk_usage(data['mountpoint']).used
         dbinfo.add_listdata("parts_sensors", data)
 
 def Refresh():
