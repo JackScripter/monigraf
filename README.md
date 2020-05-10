@@ -60,6 +60,13 @@ This module monitor basic system statistics including:
 Configurable variables:
 - delay
 
+### unbound
+Monitor statistics on single or multiple unbound DNS server.\
+This module don't need to be installed on unbound server.\
+Configurable variables:
+- delay
+- hosts: Hosts to get stats. Format: ["1.2.3.4@8953", "myhostname@8953"]. Default: ["localhost@8953"]
+
 # InfluxDB reference
 This part will be useful if you want to create dashboard.
 ## network
@@ -186,7 +193,7 @@ This measurement is created or updated when you run `/opt/monigraf/system refres
 | Key			| Values		| Description							|
 |:-------------:|:-------------:| ------------------------------------- |
 | host			| _hostname_	| Server hostname						|
-| serial_number	| _serial_number| APC UPS serial number					|
+| serial_number	| *serial_number* | APC UPS serial number				|
 
 #### Field table
 | Field			| Type		| Description								|
@@ -212,3 +219,24 @@ This measurement is created or updated when you run `/opt/monigraf/apcups refres
 | serial_number	| string	| UPS serial number				|
 | ups_name		| string	| UPS name						|
 | version		| string	| UPS driver/program version	|	
+
+## unbound
+#### Tag table
+| Key		| Values		| Description								|
+|:---------:|:-------------:| ----------------------------------------- |
+| host		| _hostname_	| Server hostname							|
+| target	| _host_		| Unbound DNS host							|
+
+#### Field table
+| Field						| Type		| Description																|
+|:-------------------------:|:---------:| ------------------------------------------------------------------------- |
+| thread*X*_cachehits		| integer	| Number of queries that were successfully answered using a cache lookup	|
+| thread*X*_prefetch		| integer	| Number of cache prefetches performed										|
+| thread*X*_queries			| integer	| Number of queries received by thread										|
+| thread*X*_recursion_time	| float		| Average time it took to answer queries that needed recursive processing. Note that queries that were answered from the cache are not in this average. |
+| thread*X*_tcpusage		| float		| The currently held tcp buffers for incoming connections. A spot value on the time of the request. |
+| total_cachehits			| integer	| Cache hits total value for all threads									|
+| total_prefetch			| integer	| Prefetch total value for all threads										|
+| total_queries				| integer	| Total queries for all threads												|
+| total_recursion_time		| float		| Average recursion time for all threads									|
+| total_tcpusage			| float		| Total TCP buffers for all threads											|
