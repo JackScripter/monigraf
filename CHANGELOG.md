@@ -1,9 +1,9 @@
 # Changelog
-## [0.1.1] - 2020-05-xx
+## [0.1.1] - 2020-05-09
 ### New modules
 - unbound
-- certificates
-
+### Fixes
+- Set shebang to /usr/bin/env python3 instead of /usr/bin/python3.7
 ## [0.1.0] - 2020-04-19
 ### New modules
 - system
