@@ -8,6 +8,7 @@ mkdir -vp ${CONFIG_PATH}
 mkdir -vp ${MODULES_PATH}
 cp -v modules/* ${MODULES_PATH}/
 cp -rv ES ${MODULES_PATH}/
+cp -rv BodyBuilder ${MODULES_PATH}/
 cp -v monigraf.py ${MODULES_PATH}/
 
 if ! [ -f ${CONFIG_PATH}/monigraf.ini ]; then

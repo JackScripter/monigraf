@@ -8,7 +8,7 @@ import socket
 import subprocess
 import psutil
 import netifaces
-from ES import ES
+from BodyBuilder import BodyBuilder
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
@@ -25,7 +25,7 @@ def GetDevices():
 def Check(net):
     txpath = "/sys/class/net/" + net + "/statistics/tx_bytes"
     rxpath = "/sys/class/net/" + net + "/statistics/rx_bytes"
-    #macaddr = netifaces.ifaddresses(net)[netifaces.AF_LINK][0]['addr']
+    macaddr = netifaces.ifaddresses(net)[netifaces.AF_LINK][0]['addr']
     rx_read = open(rxpath, 'r'); tx_read = open(txpath, 'r')
     rx_bytes_last = rx_read.read(); tx_bytes_last = tx_read.read()
     rx_read.close(); tx_read.close()
@@ -34,44 +34,45 @@ def Check(net):
     rx_read = open(rxpath, 'r'); tx_read = open(txpath, 'r')
     rx_bytes_now = rx_read.read(); tx_bytes_now = tx_read.read()
     rx_read.close(); tx_read.close()
-    pre_data = {}       # Create empty dict to store data.
-    pre_data['rx_bytes'] = float(rx_bytes_now) - float(rx_bytes_last)  # Calculate average bytes per seconds.
-    pre_data['tx_bytes'] = float(tx_bytes_now) - float(tx_bytes_last)     # Calculate average bytes per seconds.
-    pre_data['port'] = net
-    dbinfo.add_listdata("interfaces", pre_data)
+    rx_bytes = int(float(rx_bytes_now)) - int(float(rx_bytes_last))  # Calculate average bytes per seconds.
+    tx_bytes = int(float(tx_bytes_now)) - int(float(tx_bytes_last))     # Calculate average bytes per seconds.
+    dbinfo.add_tag("mac", macaddr)
+    dbinfo.add_field("rx_bytes", float(rx_bytes))
+    dbinfo.add_field("tx_bytes", float(tx_bytes))
+    dbinfo.Add()
 
 def Refresh():
+    dbinfo.Delete()
     for net in ast.literal_eval(str(listNet)):
-        pre_data = {}
         dev = subprocess.run(['/usr/bin/lspci'], stdout=subprocess.PIPE).stdout.decode('utf-8')
         for line in dev.splitlines():
             if re.search('Ethernet', line):
                 idKern = line.split(' ')[0]
                 devInfos = subprocess.run(['/usr/bin/lspci', '-v', '-s', idKern], stdout=subprocess.PIPE).stdout.decode('utf-8')
                 for info in devInfos.splitlines():
-                    if re.search('Subsystem:', info): pre_data['controller'] = info.split(': ')[1]
-                    elif re.search('driver', info): pre_data['driver'] = info.split(': ')[1]
-        pre_data['mac'] = netifaces.ifaddresses(net)[netifaces.AF_LINK][0]['addr']  # Retrieve MAC address
-        pre_data['speed'] = psutil.net_if_stats()[net][2]   # Interface Speed
-        pre_data['duplex'] = str(psutil.net_if_stats()[net][1]).split('_')[2]   # Duplex mode
-        pre_data['mtu'] = psutil.net_if_stats()[net][3] # MTU
-        pre_data['port'] = net
-        dbinfo.add_listdata("network", pre_data)
+                    if re.search('Subsystem:', info): controller = info.split(': ')[1]
+                    elif re.search('driver', info): driver = info.split(': ')[1]
+        macaddr = netifaces.ifaddresses(net)[netifaces.AF_LINK][0]['addr']  # Retrieve MAC address
+        speed = psutil.net_if_stats()[net][2]   # Interface Speed
+        duplex = str(psutil.net_if_stats()[net][1]).split('_')[2]   # Duplex mode
+        mtu = psutil.net_if_stats()[net][3] # MTU
+        dbinfo.add_field("mac", macaddr)
+        dbinfo.add_field("speed", speed)
+        dbinfo.add_field("duplex", duplex)
+        dbinfo.add_field("controller", controller)
+        dbinfo.add_field("driver", driver)
+        dbinfo.add_field("interface", net)
+        dbinfo.add_field("mtu", mtu)
+        dbinfo.Add()
 
 listNet = GetDevices()
 if sys.argv[1] == "refresh":
-    dbinfo = ES.ES("monigraf-inventory")
-    dbinfo.create_list("network")
+    dbinfo = BodyBuilder.BuildBody("network_info", host)
     Refresh()
-    dbinfo.add_data("host", host)
-    dbinfo.send()
     exit()
 
+dbinfo = BodyBuilder.BuildBody("network", host)
 while True:
-    dbinfo = ES.ES("monigraf-network-local")
-    dbinfo.create_list("interfaces")
     for net in ast.literal_eval(str(listNet)):
         Check(net)
-    dbinfo.add_data("host", host)
-    dbinfo.send()
     time.sleep(config.getint('network','delay'))

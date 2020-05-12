@@ -3,32 +3,38 @@ import re
 import time
 import ast
 import configparser
+import socket
 import subprocess
-from ES import ES
+from BodyBuilder import BodyBuilder
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
 
 def Check():
     for line in listStats.splitlines():
         if re.search('^time', line): continue
-        if re.search('^total', line):
-            if re.search('num.queries', line): data['total_queries'] = int(line.split('=')[1])
-            elif re.search('num.cachehits', line): data['total_cachehits'] = int(line.split('=')[1])
-            elif re.search('num.prefetch', line): data['total_prefetch'] = int(line.split('=')[1])
-            elif re.search('recursion.time.avg', line): data['total_recursion_time'] = float(line.split('=')[1])
-            elif re.search('tcpusage', line):
-                data['total_tcpusage'] = float(line.split('=')[1])
+        if re.search('^thread[0-9]', line):
+            if re.search('num.queries', line): key = line.split('.')[0] + "_queries"; dbinfo.add_field(key, int(line.split('=')[1]))
+            elif re.search('num.cachehits', line): key = line.split('.')[0] + "_cachehits"; dbinfo.add_field(key, int(line.split('=')[1]))
+            elif re.search('num.prefetch', line): key = line.split('.')[0] + "_prefetch"; dbinfo.add_field(key, int(line.split('=')[1]))
+            elif re.search('recursion.time.avg', line): key = line.split('.')[0] + "_recursion_time"; dbinfo.add_field(key, float(line.split('=')[1]))
+            elif re.search('tcpusage', line): key = line.split('.')[0] + "_tcpusage"; dbinfo.add_field(key, float(line.split('=')[1]))
             else: continue
+        if re.search('^total', line):
+            if re.search('num.queries', line): dbinfo.add_field("total_queries", int(line.split('=')[1]))
+            elif re.search('num.cachehits', line): dbinfo.add_field("total_cachehits", int(line.split('=')[1]))
+            elif re.search('num.prefetch', line): dbinfo.add_field("total_prefetch", int(line.split('=')[1]))
+            elif re.search('recursion.time.avg', line): dbinfo.add_field("total_recursion_time", float(line.split('=')[1]))
+            elif re.search('tcpusage', line):
+                dbinfo.add_field("total_tcpusage", float(line.split('=')[1]))
+            else: continue
+        dbinfo.Add()
 
+dbinfo = BodyBuilder.BuildBody("unbound", host)
 while True:
-    dbinfo = ES.ES("monigraf-unbound")
-    dbinfo.create_list("dns_servers")
     for host_dns in ast.literal_eval(str(config['unbound']['hosts'])):
-        data = {}
-        data['host'] = str(host_dns.split('@')[0])
+        dbinfo.add_tag("target", str(host_dns.split('@')[0]))
         listStats = subprocess.run(['/usr/sbin/unbound-control', '-s', host_dns, 'stats'], stdout=subprocess.PIPE).stdout.decode('utf-8')
         Check()
-        dbinfo.add_listdata("dns_servers", data)
-    dbinfo.send()
     time.sleep(config.getint('unbound','delay'))
