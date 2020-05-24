@@ -9,7 +9,7 @@ config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 
 def Check(domain):
-    cert_exp = str(subprocess.run(['/scripts/monigraf/check_cert_exp.sh', domain, config['certificates_expiration']['days_before_warning'], config['certificates_expiration']['days_before_critical']], stdout=subprocess.PIPE).stdout.decode('utf-8').rsplit("\n")[0])
+    cert_exp = str(subprocess.run(['/opt/monigraf/check_cert_exp.sh', domain, config['certificates_expiration']['days_before_warning'], config['certificates_expiration']['days_before_critical']], stdout=subprocess.PIPE).stdout.decode('utf-8').rsplit("\n")[0])
 
     return cert_exp
 
