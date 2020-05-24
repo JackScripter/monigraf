@@ -10,19 +10,18 @@ config.read('/etc/monigraf/monigraf.ini')
 
 def Check(domain):
     cert_exp = str(subprocess.run(['/opt/monigraf/check_cert_exp.sh', domain, config['certificates_expiration']['days_before_warning'], config['certificates_expiration']['days_before_critical']], stdout=subprocess.PIPE).stdout.decode('utf-8').rsplit("\n")[0])
-
     return cert_exp
 
 while True:
     dbinfo = ES.ES("monigraf-certificates_expiration")
     dbinfo.create_list("domains")
-    data = {}
     with open(config['certificates_expiration']['domain_file_list']) as domains:
         domain = domains.readline()
         while domain:
             if not domain.startswith('#') and not " " in domain:
-                expiration = Check(domain.rsplit("\n")[0])
-                data['domain'] = domain.rsplit("\n")[0].split(':')[0]
+                expiration = Check(domain.rstrip("\n"))
+                data = {}
+                data['domain'] = domain.rstrip("\n").split(':')[0]
                 data['expiration_time'] = expiration.split(';')[0]
                 data['status'] = expiration.split(';')[1]
                 date_year = int(expiration.split(';')[0].split('-')[0])
