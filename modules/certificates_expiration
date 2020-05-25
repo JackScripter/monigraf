@@ -28,7 +28,7 @@ while True:
                 date_year = int(expiration.split(';')[0].split('-')[0])
                 date_month = int(expiration.split(';')[0].split('-')[1])
                 date_day = int(expiration.split(';')[0].split('-')[2].split(' ')[0])
-                dbinfo.add_field("expire_in", str(date.today() - date(date_year, date_month, date_day)).rstrip('-').split(',')[0])
+                dbinfo.add_field("expire_in", str(date(date_year, date_month, date_day) - date.today()).rstrip('-').split(',')[0])
                 dbinfo.Add()
                 domain = domains.readline()
             else: domain = domains.readline()
