@@ -21,6 +21,7 @@ while True:
             if not domain.startswith('#') and not " " in domain:
                 expiration = Check(domain.rstrip("\n"))
                 dbinfo = BodyBuilder.BuildBody("certificates_expiration", host)
+                dbinfo.add_tag("domain", domain.rstrip("\n").split(':')[0])
                 dbinfo.add_field("domain", domain.rstrip("\n").split(':')[0])
                 dbinfo.add_field("expiration_time", expiration.split(';')[0])
                 dbinfo.add_field("status", expiration.split(';')[1])
