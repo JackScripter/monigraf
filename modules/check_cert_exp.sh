@@ -9,10 +9,11 @@ expirationdate=$(date -d "$(: | openssl s_client -connect $target -servername $t
 expirein_warn=$(($(date +%s) + (86400*$days_warn)))
 expirein_crit=$(($(date +%s) + (86400*$days_crit)))
 
+# 0=OK	1=WARNING	2=CRITICAL
 if [ $expirein_crit -gt $expirationdate ]; then
-	echo "$(date -d @$expirationdate '+%F %T');CRITICAL"
+	echo "$(date -d @$expirationdate '+%F %T');2"
 elif [ $expirein_warn -gt $expirationdate ]; then
-	echo "$(date -d @$expirationdate '+%F %T');WARNING"
+	echo "$(date -d @$expirationdate '+%F %T');1"
 else
-	echo "$(date -d @$expirationdate '+%F %T');OK"
+	echo "$(date -d @$expirationdate '+%F %T');0"
 fi

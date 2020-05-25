@@ -3,33 +3,32 @@ import configparser
 import subprocess
 from datetime import date
 import time
-from ES import ES
+import socket
+from BodyBuilder import BodyBuilder
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
+host = socket.gethostname()
 
 def Check(domain):
     cert_exp = str(subprocess.run(['/opt/monigraf/check_cert_exp.sh', domain, config['certificates_expiration']['days_before_warning'], config['certificates_expiration']['days_before_critical']], stdout=subprocess.PIPE).stdout.decode('utf-8').rsplit("\n")[0])
     return cert_exp
 
 while True:
-    dbinfo = ES.ES("monigraf-certificates_expiration")
-    dbinfo.create_list("domains")
     with open(config['certificates_expiration']['domain_file_list']) as domains:
         domain = domains.readline()
         while domain:
             if not domain.startswith('#') and not " " in domain:
                 expiration = Check(domain.rstrip("\n"))
-                data = {}
-                data['domain'] = domain.rstrip("\n").split(':')[0]
-                data['expiration_time'] = expiration.split(';')[0]
-                data['status'] = expiration.split(';')[1]
+                dbinfo = BodyBuilder.BuildBody("certificates_expiration", host)
+                dbinfo.add_field("domain", domain.rstrip("\n").split(':')[0])
+                dbinfo.add_field("expiration_time", expiration.split(';')[0])
+                dbinfo.add_field("status", expiration.split(';')[1])
                 date_year = int(expiration.split(';')[0].split('-')[0])
                 date_month = int(expiration.split(';')[0].split('-')[1])
                 date_day = int(expiration.split(';')[0].split('-')[2].split(' ')[0])
-                data['expire_in'] = str(date.today() - date(date_year, date_month, date_day))
-                dbinfo.add_listdata("domains", data)
+                dbinfo.add_field("expire_in", str(date.today() - date(date_year, date_month, date_day)))
+                dbinfo.Add()
                 domain = domains.readline()
             else: domain = domains.readline()
-    dbinfo.send()
     time.sleep(config.getint("certificates_expiration", "delay"))
