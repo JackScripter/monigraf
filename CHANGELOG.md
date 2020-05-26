@@ -3,9 +3,14 @@
 ## [0.2.0] - 2020-xx-xx
 ### New Features
 - Added Elasticsearch as a new datasource !
+### New modules
+- raw_logs
+- certificates_expiration
 ### Fixes
 - Store temporary data in a dictonary instead of multiple single variable
-- Replaced BodyBuilder with ES
+- Add ES module
+- Remove unused python module
+- Support CentOS and Debian
 
 ## [0.1.1] - 2020-05-09
 ### New modules

@@ -24,11 +24,6 @@ def Check():
         except AttributeError: temp = listDrives[i].attributes[190].raw
         poweron = listDrives[i].attributes[9].raw
         # Health
-        #try:
-        #    health = str(listDrives[i].attributes[231])
-        #    print(health)
-        #    health = ' '.join(str(health).split()).split(' ')[2]
-        #except AttributeError: pass
         try:
             health = str(listDrives[i].attributes[177])
             health = ' '.join(health.split()).split(' ')[2]
