@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+import time
+import configparser
+from SNMP import SNMP, OID
+from BodyBuilder import BodyBuilder
+
+# 1:normal
+#2:warning
+#3:critical
+#4:shutdown
+#5:notPresent
+#6:notFunctioning
+
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+
+discard_snmp = ["NoSuchInstancecurrentlyexistsatthisOID", "NoSuchObjectavailableonthisagentatthisOID"]
+discard_sensor = ["GREEN", "YELLOW", "RED"]
+
+def cpuUsage(host):
+    snmpGet = SNMP.SNMP(community, host)
+    cpuUsage = snmpGet.get(snmpOid.cpu_usage)
+    try: cpuUsage = cpuUsage.split('=')[1].replace('"','')
+    except: cpuUsage = cpuUsage.split('=')[1]
+    try: cpuUsage = float(cpuUsage)
+    except: cpuUsage = -1.0
+
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
+    dbinfo.add_field("cpu_usage", cpuUsage)
+    print(cpuUsage)
+    #dbinfo.Add()
+
+def memUsage(host):
+    snmpGet = SNMP.SNMP(community, host)
+    memTotal = snmpGet.get(snmpOid.mem_total).split('=')[1]
+    memUsed = snmpGet.get(snmpOid.mem_used).split('=')[1]
+    try:
+        ramUsed = int(memUsed) * 100 / int(memTotal)
+    except: ramUsed = 0
+
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
+    dbinfo.add_field("mem_usage", ramUsed)
+    print(ramUsed)
+    #dbinfo.Add()
+
+def envMon(host):
+    snmpGet = SNMP.SNMP(community, host)
+    envMonDesc = snmpGet.get(snmpOid.env_temp_status_desc)
+    if not any(x in envMonDesc for x in discard_snmp):    # Check if SNMP result contains element in list
+        envMonDescList = []
+        for desc in envMonDesc.splitlines():
+            desc = desc.split('=')
+            if "Sensor" in str(desc):
+                desc = ''.join(desc[1].split(',')[0:2])
+                envMonDescList.append(desc)
+            else:
+                envMonDescList.append(desc[1])
+
+    envMon = snmpGet.get(snmpOid.env_temp_status_value)
+    envMonList = []
+    for sensor in envMon.splitlines(): envMonList.append(sensor.split('=')[1])
+    # a = Host, b = sensorName, c = sensorValue
+    mapped = list(map(lambda a, b: str(a) + ';' + str(b.split('d')[0]), envMonDescList, envMonList))
+
+    dbinfo = BodyBuilder.BuildBody("cisco", host)
+    for sensorTemp in mapped:
+        if sensorTemp.split(';')[1] in discard_snmp: continue
+        dbinfo.add_field("sensor", sensorTemp.split(';')[0])
+        dbinfo.add_field("value", sensorTemp.split(';')[1])
+        print(sensorTemp.split(';')[0])
+        print(sensorTemp.split(';')[1])
+        #dbinfo.Add()
+
+def SysInfo(host):
+    # Get device system information such as OS, Model, etc
+    dumpSnmpGet = SNMP.SNMP(community, host)
+    snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo)).split('=')[1]
+    if "CiscoIOSSoftware" in snmpSysType: return "CiscoCatalyst"
+    elif "Linux" in snmpSysType: return "Linux"
+
+while True:
+    hostList = open(config['snmp_monitoring']['device_list'], "r").read()
+    community = config['snmp_monitoring']['snmp_community']
+    for host in str(hostList).splitlines():
+        if not host.startswith('#'):
+            system_type = SysInfo(host)
+            if system_type == "CiscoCatalyst":
+                snmpOid = OID.oid.CiscoCatalyst
+                cpuUsage(host)
+                envMon(host)
+            elif system_type == "Linux":
+                snmpOid = OID.oid.Linux
+                cpuUsage(host)
+                memUsage(host)
+    time.sleep(config.getint("snmp_monitoring", "delay"))
