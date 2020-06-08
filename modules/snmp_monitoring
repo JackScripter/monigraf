@@ -18,7 +18,7 @@ config.read('/etc/monigraf/monigraf.ini')
 
 discard_snmp = ["NoSuchInstancecurrentlyexistsatthisOID", "NoSuchObjectavailableonthisagentatthisOID"]
 discard_sensor = ["GREEN", "YELLOW", "RED"]
-discard_interface = ["Null", "Vlan", "Loopback", "lo"]
+discard_interface = ["Null", "Vlan", "Loopback", "lo", "StackPort", "StackSub"]
 tmp_dir = '/tmp/monigraf/devices/'
 
 def cpuUsage(host):
