@@ -72,7 +72,7 @@ def envMon(host):
         sensorTemp = sensorTemp.replace('"', '')
         dbinfo.add_field("host", host)
         dbinfo.add_tag("sensor", sensorTemp.split(';')[0])
-        dbinfo.add_field("value", int(sensorTemp.split(';')[1]))
+        dbinfo.add_field("value", float(sensorTemp.split(';')[1]))
         dbinfo.Add()
 
 def envFan(host):
@@ -116,10 +116,12 @@ def MapInterface(host, In, InNow, Out, OutNow):
     for i in mapped:
         pattern = str("^" + str(i.split(';')[0]) + "=")
         for line in portLine:
+            print(line)
             if re.search(pattern, line):
                 dbinfo = BodyBuilder.BuildBody("snmp_monitoring_port_usage", host)
                 dbinfo.add_field("host", host)
-                dbinfo.add_tag("port", str(line.split('"')[1]).replace('\n', ''))
+                try: dbinfo.add_tag("port", str(line.split('"')[1]).replace('\n', ''))
+                except: dbinfo.add_tag("port", str(line).replace('\n', ''))
                 dbinfo.add_field("ingress", int(i.split(';')[1]))
                 dbinfo.add_field("outgress", int(i.split(';')[2]))
                 dbinfo.Add()
@@ -141,7 +143,7 @@ def GenIfTable(host):
     interface = snmpGet.get(snmpOid.if_desc)
     f_portmap = open(portmap_file, 'a')
     for line in interface.splitlines():
-        if not any(x in line for x in discard_interface): f_portmap.write(line.split('.')[10].replace("STRING:", "") + '\n')       # Don't monitor some type of interface, like vlan, null...
+        if not any(x in line for x in discard_interface): f_portmap.write(line.split('.')[2].replace("STRING:", "") + '\n')       # Don't monitor some type of interface, like vlan, null...
     f_portmap.close()
 
 def SysInfo(host):
