@@ -36,3 +36,7 @@ class oid:
         if_desc = "1.3.6.1.2.1.2.2.1.2"
         total_in_octets = "1.3.6.1.2.1.2.2.1.10"
         total_out_octets = "1.3.6.1.2.1.2.2.1.16"
+        ifInErrors = "1.3.6.1.2.1.2.2.1.14"
+        ifOutErrors = "1.3.6.1.2.1.2.2.1.20"
+        ifInDiscards = "1.3.6.1.2.1.2.2.1.13"
+        ifOutDiscards = "1.3.6.1.2.1.2.2.1.19"
