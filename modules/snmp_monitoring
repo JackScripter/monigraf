@@ -18,7 +18,7 @@ config.read('/etc/monigraf/monigraf.ini')
 
 discard_snmp = ["NoSuchInstancecurrentlyexistsatthisOID", "NoSuchObjectavailableonthisagentatthisOID"]
 discard_sensor = ["GREEN", "YELLOW", "RED"]
-discard_interface = ["Null", "Vlan", "Loopback", "lo", "StackPort", "StackSub"]
+discard_interface = ["Null", "Vlan", "Loopback", "lo", "StackPort", "StackSub", "bond"]
 tmp_dir = '/tmp/monigraf/devices/'
 
 def cpuUsage(host):
@@ -66,12 +66,39 @@ def envMon(host):
     # a = Host, b = sensorName, c = sensorValue
     mapped = list(map(lambda a, b: str(a) + ';' + str(b.split('d')[0]), envMonDescList, envMonList))
 
-    dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring_env_temp", host)
     for sensorTemp in mapped:
         if sensorTemp.split(';')[1] in discard_snmp: continue
+        sensorTemp = sensorTemp.replace('"', '')
         dbinfo.add_field("host", host)
-        dbinfo.add_field("sensor", sensorTemp.split(';')[0])
-        dbinfo.add_field("value", sensorTemp.split(';')[1])
+        dbinfo.add_tag("sensor", sensorTemp.split(';')[0])
+        dbinfo.add_field("value", int(sensorTemp.split(';')[1]))
+        dbinfo.Add()
+
+def envFan(host):
+    snmpGet = SNMP.SNMP(community, host)
+    envMonDesc = snmpGet.get(snmpOid.env_fan_desc)
+    if not any(x in envMonDesc for x in discard_snmp):    # Check if SNMP result contains element in list
+        envMonDescList = []
+        for desc in envMonDesc.splitlines():
+            desc = desc.split('=')
+            if "Sensor" in str(desc):
+                desc = ''.join(desc[1].split(',')[0:2])
+                envMonDescList.append(desc)
+            else:
+                envMonDescList.append(desc[1])
+    envMon = snmpGet.get(snmpOid.env_fan_value)
+    envMonList = []
+    for sensor in envMon.splitlines(): envMonList.append(sensor.split('=')[1])
+    # a = Host, b = sensorName, c = sensorValue
+    mapped = list(map(lambda a, b: str(a) + ';' + str(b.split('d')[0]), envMonDescList, envMonList))
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring_env_fan", host)
+    for fan in mapped:
+        if fan.split(';')[1] in discard_snmp: continue
+        fan = fan.replace('"', '')
+        #dbinfo.add_field("host", host)
+        dbinfo.add_tag("fan", fan.split(';')[0])
+        dbinfo.add_field("speed", int(fan.split(';')[1]))
         dbinfo.Add()
 
 # Map port and returned value
@@ -122,7 +149,12 @@ def SysInfo(host):
     dumpSnmpGet = SNMP.SNMP(community, host)
     snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo)).split('=')[1]
     if "CiscoIOSSoftware" in snmpSysType: return "CiscoCatalyst"
-    elif "Linux" in snmpSysType: return "Linux"
+    elif "Linux" in snmpSysType:
+        try:
+            snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo_cp)).split('=')[1]
+            if "Gaia" in snmpSysType: return "CheckPoint"
+            else: return "Linux"
+        except: return "Linux"
 
 # Create tmp_dir if not exists
 if not path.exists(tmp_dir):
@@ -150,5 +182,12 @@ while True:
                 if not path.exists(portmap_file): GenIfTable(host)
                 cpuUsage(host)
                 memUsage(host)
+                InterfaceUsage(host)
+            elif system_type == "CheckPoint":
+                snmpOid = OID.oid.CheckPoint
+                if not path.exists(portmap_file): GenIfTable(host)
+                cpuUsage(host)
+                envMon(host)
+                envFan(host)
                 InterfaceUsage(host)
     time.sleep(config.getint("snmp_monitoring", "delay"))
