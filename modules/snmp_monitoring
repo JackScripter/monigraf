@@ -4,6 +4,7 @@ import re
 import configparser
 from os import path, mkdir
 from SNMP import SNMP, OID
+from multiprocessing import Pool
 from BodyBuilder import BodyBuilder
 
 # 1:normal
@@ -102,7 +103,7 @@ def envFan(host):
         dbinfo.Add()
 
 # Map port and returned value
-def MapInterface(host, In, InNow, Out, OutNow):
+def MapInterface(host, In, InNow, Out, OutNow, label1, label2):
     portList = open(portmap_file, 'r')
     ##### [0] = Port ID // [1] = Port usage #####
     avgIn = In.splitlines()
@@ -116,27 +117,44 @@ def MapInterface(host, In, InNow, Out, OutNow):
     for i in mapped:
         pattern = str("^" + str(i.split(';')[0]) + "=")
         for line in portLine:
-            print(line)
             if re.search(pattern, line):
                 dbinfo = BodyBuilder.BuildBody("snmp_monitoring_port_usage", host)
                 dbinfo.add_field("host", host)
                 try: dbinfo.add_tag("port", str(line.split('"')[1]).replace('\n', ''))
-                except: dbinfo.add_tag("port", str(line).replace('\n', ''))
-                dbinfo.add_field("ingress", int(i.split(';')[1]))
-                dbinfo.add_field("outgress", int(i.split(';')[2]))
+                except: dbinfo.add_tag("port", str(line).split('=')[1].replace('\n', ''))
+                dbinfo.add_field(label1, int(i.split(';')[1]))
+                dbinfo.add_field(label2, int(i.split(';')[2]))
                 dbinfo.Add()
     portList.close()
 
 def InterfaceUsage(host):
     currentPortmap = tmp_dir + str(host).replace('\n', '')
     snmpGet = SNMP.SNMP(community, host)
+    # Interface total usage
     usageAvgIn = snmpGet.get(snmpOid.total_in_octets)        # output: portID = int (61 = 11)
     time.sleep(1)
     usageAvgInNow = snmpGet.get(snmpOid.total_in_octets)
     usageAvgOut = snmpGet.get(snmpOid.total_out_octets)
     time.sleep(1)
     usageAvgOutNow = snmpGet.get(snmpOid.total_out_octets)
-    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow)
+    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "ingress", "outgress")
+    # Interface Errors
+    usageAvgIn = snmpGet.get(snmpOid.ifInErrors)
+    time.sleep(1)
+    usageAvgInNow = snmpGet.get(snmpOid.ifInErrors)
+    usageAvgOut = snmpGet.get(snmpOid.ifOutErrors)
+    time.sleep(1)
+    usageAvgOutNow = snmpGet.get(snmpOid.ifOutErrors)
+    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "InErrors", "OutErrors")
+    # Interface Discards
+    usageAvgIn = snmpGet.get(snmpOid.ifInDiscards)
+    time.sleep(1)
+    usageAvgInNow = snmpGet.get(snmpOid.ifInDiscards)
+    usageAvgOut = snmpGet.get(snmpOid.ifOutDiscards)
+    time.sleep(1)
+    usageAvgOutNow = snmpGet.get(snmpOid.ifOutDiscards)
+    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "InDiscards", "OutDiscards")
+
 
 def GenIfTable(host):
     snmpGet = SNMP.SNMP(community, host)
@@ -158,6 +176,35 @@ def SysInfo(host):
             else: return "Linux"
         except: return "Linux"
 
+def snmp_process(host):
+    while True:
+        global portmap_file
+        portmap_file = str(tmp_dir + "portmap_" + host)
+        system_type = SysInfo(host)
+        global snmpOid
+        if system_type == "CiscoCatalyst":
+            snmpOid = OID.oid.CiscoCatalyst     # Set OID for a device type.
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            envMon(host)
+            InterfaceUsage(host)
+        elif system_type == "Linux":
+            snmpOid = OID.oid.Linux
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            memUsage(host)
+            InterfaceUsage(host)
+        elif system_type == "CheckPoint":
+            snmpOid = OID.oid.CheckPoint
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            envMon(host)
+            envFan(host)
+            InterfaceUsage(host)
+        time.sleep(config.getint("snmp_monitoring", "delay"))
+
+
+
 # Create tmp_dir if not exists
 if not path.exists(tmp_dir):
     try:
@@ -166,30 +213,12 @@ if not path.exists(tmp_dir):
         mkdir("/tmp/monigraf", 0o750)
         mkdir("/tmp/monigraf/devices", 0o750)
 
-while True:
-    hostList = open(config['snmp_monitoring']['device_list'], "r").read()
-    community = config['snmp_monitoring']['snmp_community']
-    for host in str(hostList).splitlines():
-        if not host.startswith('#'):
-            portmap_file = str(tmp_dir + "portmap_" + host)
-            system_type = SysInfo(host)
-            if system_type == "CiscoCatalyst":
-                snmpOid = OID.oid.CiscoCatalyst     # Set OID for a device type.
-                if not path.exists(portmap_file): GenIfTable(host)
-                cpuUsage(host)
-                envMon(host)
-                InterfaceUsage(host)
-            elif system_type == "Linux":
-                snmpOid = OID.oid.Linux
-                if not path.exists(portmap_file): GenIfTable(host)
-                cpuUsage(host)
-                memUsage(host)
-                InterfaceUsage(host)
-            elif system_type == "CheckPoint":
-                snmpOid = OID.oid.CheckPoint
-                if not path.exists(portmap_file): GenIfTable(host)
-                cpuUsage(host)
-                envMon(host)
-                envFan(host)
-                InterfaceUsage(host)
-    time.sleep(config.getint("snmp_monitoring", "delay"))
+#while True:
+hostList = open(config['snmp_monitoring']['device_list'], "r").read()
+community = config['snmp_monitoring']['snmp_community']
+hostArray = []; processes = []
+for host in str(hostList).splitlines():
+    if not host.startswith('#'): hostArray.append(host.replace('\n', ''))        # Create array of hosts.
+
+pool = Pool(processes=len(hostArray))
+pool.map(snmp_process, hostArray)
