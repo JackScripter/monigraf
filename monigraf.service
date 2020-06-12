@@ -1,7 +1,6 @@
 [Unit]
 Description=Monigraf (Monitoring Grafana) Service
 After=network.target
-StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -9,6 +8,7 @@ Restart=always
 RestartSec=1
 User=root
 ExecStart=/usr/bin/env python3 /opt/monigraf/monigraf.py
+StandardOutput=null
 
 [Install]
 WantedBy=multi-user.target
