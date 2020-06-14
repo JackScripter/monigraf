@@ -6,9 +6,9 @@
 ### New modules
 - raw_logs
 - certificates_expiration
+- snmp_monitoring
 ### Fixes
 - Store temporary data in a dictonary instead of multiple single variable
-- Add ES module
 - Remove unused python module
 - Support CentOS and Debian
 

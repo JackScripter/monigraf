@@ -24,7 +24,7 @@ while True:
                 dbinfo.add_tag("domain", domain.rstrip("\n").split(':')[0])
                 dbinfo.add_field("domain", domain.rstrip("\n").split(':')[0])
                 dbinfo.add_field("expiration_time", expiration.split(';')[0])
-                dbinfo.add_field("status", expiration.split(';')[1])
+                dbinfo.add_field("status", int(expiration.split(';')[1]))
                 date_year = int(expiration.split(';')[0].split('-')[0])
                 date_month = int(expiration.split(';')[0].split('-')[1])
                 date_day = int(expiration.split(';')[0].split('-')[2].split(' ')[0])
