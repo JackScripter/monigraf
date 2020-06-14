@@ -29,7 +29,7 @@ def cpuUsage(host):
     except: cpuUsage = cpuUsage.split('=')[1]
     try:
         cpuUsage = float(cpuUsage)
-        if system_info == "Linux": cpuUsage *= 100.0        # Linux OID give cpu usage in 0 to 1 range.
+        if system_type == "Linux": cpuUsage *= 100.0        # Linux OID give cpu usage in 0 to 1 range.
     except: cpuUsage = -1.0
 
     dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
@@ -181,8 +181,9 @@ def SysInfo(host):
 def snmp_process(host):
     while True:
         global portmap_file
+        global system_type
         portmap_file = str(tmp_dir + "portmap_" + host)
-        global system_type = SysInfo(host)
+        system_type = SysInfo(host)
         global snmpOid
         if system_type == "CiscoCatalyst":
             snmpOid = OID.oid.CiscoCatalyst     # Set OID for a device type.
