@@ -19,7 +19,7 @@ config.read('/etc/monigraf/monigraf.ini')
 
 discard_snmp = ["NoSuchInstancecurrentlyexistsatthisOID", "NoSuchObjectavailableonthisagentatthisOID"]
 discard_sensor = ["GREEN", "YELLOW", "RED"]
-discard_interface = ["Null", "Vlan", "Loopback", "lo", "StackPort", "StackSub", "bond"]
+discard_interface = ["Null", "Vlan", "Loopback", "lo", "StackPort", "StackSub"]
 tmp_dir = '/tmp/monigraf/devices/'
 
 def cpuUsage(host):
@@ -27,7 +27,9 @@ def cpuUsage(host):
     cpuUsage = snmpGet.get(snmpOid.cpu_usage)
     try: cpuUsage = cpuUsage.split('=')[1].replace('"','')
     except: cpuUsage = cpuUsage.split('=')[1]
-    try: cpuUsage = float(cpuUsage)
+    try:
+        cpuUsage = float(cpuUsage)
+        if system_info == "Linux": cpuUsage *= 100.0        # Linux OID give cpu usage in 0 to 1 range.
     except: cpuUsage = -1.0
 
     dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
@@ -155,7 +157,6 @@ def InterfaceUsage(host):
     usageAvgOutNow = snmpGet.get(snmpOid.ifOutDiscards)
     MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "InDiscards", "OutDiscards")
 
-
 def GenIfTable(host):
     snmpGet = SNMP.SNMP(community, host)
     interface = snmpGet.get(snmpOid.if_desc)
@@ -176,11 +177,12 @@ def SysInfo(host):
             else: return "Linux"
         except: return "Linux"
 
+# Multiprocessing part
 def snmp_process(host):
     while True:
         global portmap_file
         portmap_file = str(tmp_dir + "portmap_" + host)
-        system_type = SysInfo(host)
+        global system_type = SysInfo(host)
         global snmpOid
         if system_type == "CiscoCatalyst":
             snmpOid = OID.oid.CiscoCatalyst     # Set OID for a device type.
@@ -203,8 +205,6 @@ def snmp_process(host):
             InterfaceUsage(host)
         time.sleep(config.getint("snmp_monitoring", "delay"))
 
-
-
 # Create tmp_dir if not exists
 if not path.exists(tmp_dir):
     try:
@@ -213,7 +213,6 @@ if not path.exists(tmp_dir):
         mkdir("/tmp/monigraf", 0o750)
         mkdir("/tmp/monigraf/devices", 0o750)
 
-#while True:
 hostList = open(config['snmp_monitoring']['device_list'], "r").read()
 community = config['snmp_monitoring']['snmp_community']
 hostArray = []; processes = []
