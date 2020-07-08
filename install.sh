@@ -12,7 +12,7 @@ function centos() {
 		if ! yum repolist | grep epel; then yum install epel-release; yum update; fi
 		yum install -y inotify-tools
 	fi
-	if ! rpm -q net-snmp-devel; then yum install -y net-snmp-devel; fi
+	if ! rpm -q net-snmp-utils; then yum install -y net-snmp-utils; fi
 }
 
 function debian() {
