@@ -10,12 +10,13 @@ CONFIG_PATH='/etc/monigraf'
 function centos() {
 	if ! rpm -q inotify-tools; then
 		if ! yum repolist | grep epel; then yum install epel-release; yum update; fi
-		yum install inotify-tools
+		yum install -y inotify-tools
 	fi
+	if ! rpm -q net-snmp-devel; then yum install -y net-snmp-devel; fi
 }
 
 function debian() {
-	if ! dpkg -l inotify-tools; then apt install inotify-tools; fi
+	if ! dpkg -l inotify-tools; then apt install -y inotify-tools; fi
 }
 
 function general() {
