@@ -1,6 +1,9 @@
 # Changelog
+## [0.3.0] - 2020-xx-xx
+### New Features
+- Added alerting services such as Telegram.
 
-## [0.2.0] - 2020-xx-xx
+## [0.2.0] - 2020-07-15
 ### New Features
 - Added Elasticsearch as a new datasource !
 ### New modules
