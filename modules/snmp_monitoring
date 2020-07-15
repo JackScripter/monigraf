@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+import time
+import re
+import configparser
+from os import path, mkdir
+from SNMP import SNMP, OID
+from multiprocessing import Pool
+from BodyBuilder import BodyBuilder
+
+# 1:normal
+#2:warning
+#3:critical
+#4:shutdown
+#5:notPresent
+#6:notFunctioning
+
+config = configparser.ConfigParser()
+config.read('/etc/monigraf/monigraf.ini')
+
+discard_snmp = ["NoSuchInstancecurrentlyexistsatthisOID", "NoSuchObjectavailableonthisagentatthisOID"]
+discard_sensor = ["GREEN", "YELLOW", "RED"]
+discard_interface = ["Null", "Vlan", "Loopback", "lo", "StackPort", "StackSub"]
+tmp_dir = '/tmp/monigraf/devices/'
+
+def cpuUsage(host):
+    snmpGet = SNMP.SNMP(community, host)
+    cpuUsage = snmpGet.get(snmpOid.cpu_usage)
+    try: cpuUsage = cpuUsage.split('=')[1].replace('"','')
+    except: cpuUsage = cpuUsage.split('=')[1]
+    try:
+        cpuUsage = float(cpuUsage)
+        if system_type == "Linux": cpuUsage *= 100.0        # Linux OID give cpu usage in 0 to 1 range.
+    except: cpuUsage = -1.0
+
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
+    dbinfo.add_field("cpu_usage", float(cpuUsage))
+    dbinfo.add_field("host", host)
+    dbinfo.Add()
+
+def memUsage(host):
+    snmpGet = SNMP.SNMP(community, host)
+    memTotal = snmpGet.get(snmpOid.mem_total).split('=')[1]
+    memUsed = snmpGet.get(snmpOid.mem_used).split('=')[1]
+    try:
+        ramUsed = int(memUsed) * 100 / int(memTotal)
+    except: ramUsed = 0
+
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
+    dbinfo.add_field("mem_usage", float(ramUsed))
+    dbinfo.add_field("host", host)
+    dbinfo.Add()
+
+def envMon(host):
+    snmpGet = SNMP.SNMP(community, host)
+    envMonDesc = snmpGet.get(snmpOid.env_temp_status_desc)
+    if not any(x in envMonDesc for x in discard_snmp):    # Check if SNMP result contains element in list
+        envMonDescList = []
+        for desc in envMonDesc.splitlines():
+            desc = desc.split('=')
+            if "Sensor" in str(desc):
+                desc = ''.join(desc[1].split(',')[0:2])
+                envMonDescList.append(desc)
+            else:
+                envMonDescList.append(desc[1])
+
+    envMon = snmpGet.get(snmpOid.env_temp_status_value)
+    envMonList = []
+    for sensor in envMon.splitlines(): envMonList.append(sensor.split('=')[1])
+    # a = Host, b = sensorName, c = sensorValue
+    mapped = list(map(lambda a, b: str(a) + ';' + str(b.split('d')[0]), envMonDescList, envMonList))
+
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring_env_temp", host)
+    for sensorTemp in mapped:
+        if sensorTemp.split(';')[1] in discard_snmp: continue
+        sensorTemp = sensorTemp.replace('"', '')
+        dbinfo.add_field("host", host)
+        dbinfo.add_tag("sensor", sensorTemp.split(';')[0])
+        dbinfo.add_field("value", float(sensorTemp.split(';')[1]))
+        dbinfo.Add()
+
+def envFan(host):
+    snmpGet = SNMP.SNMP(community, host)
+    envMonDesc = snmpGet.get(snmpOid.env_fan_desc)
+    if not any(x in envMonDesc for x in discard_snmp):    # Check if SNMP result contains element in list
+        envMonDescList = []
+        for desc in envMonDesc.splitlines():
+            desc = desc.split('=')
+            if "Sensor" in str(desc):
+                desc = ''.join(desc[1].split(',')[0:2])
+                envMonDescList.append(desc)
+            else:
+                envMonDescList.append(desc[1])
+    envMon = snmpGet.get(snmpOid.env_fan_value)
+    envMonList = []
+    for sensor in envMon.splitlines(): envMonList.append(sensor.split('=')[1])
+    # a = Host, b = sensorName, c = sensorValue
+    mapped = list(map(lambda a, b: str(a) + ';' + str(b.split('d')[0]), envMonDescList, envMonList))
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring_env_fan", host)
+    for fan in mapped:
+        if fan.split(';')[1] in discard_snmp: continue
+        fan = fan.replace('"', '')
+        #dbinfo.add_field("host", host)
+        dbinfo.add_tag("fan", fan.split(';')[0])
+        dbinfo.add_field("speed", int(fan.split(';')[1]))
+        dbinfo.Add()
+
+# Map port and returned value
+def MapInterface(host, In, InNow, Out, OutNow, label1, label2):
+    portList = open(portmap_file, 'r')
+    ##### [0] = Port ID // [1] = Port usage #####
+    avgIn = In.splitlines()
+    avgInNow = InNow.splitlines()
+    avgOut = Out.splitlines()
+    avgOutNow = OutNow.splitlines()
+    #############################################
+    # 0=portID; 1=usageIn; 2=usageOut
+    mapped = list(map(lambda a, b, c, d: str(a.split('=')[0]).replace('.', '') + ';' + str(int(b.split('=')[1]) - int(a.split('=')[1])) + ';' + str(int(d.split('=')[1]) - int(c.split('=')[1])), avgIn, avgInNow, avgOut, avgOutNow))
+    portLine = portList.readlines()
+    for i in mapped:
+        pattern = str("^" + str(i.split(';')[0]) + "=")
+        for line in portLine:
+            if re.search(pattern, line):
+                dbinfo = BodyBuilder.BuildBody("snmp_monitoring_port_usage", host)
+                dbinfo.add_field("host", host)
+                try: dbinfo.add_tag("port", str(line.split('"')[1]).replace('\n', ''))
+                except: dbinfo.add_tag("port", str(line).split('=')[1].replace('\n', ''))
+                if int(i.split(';')[1]) < 0: value1 = 0         # Remove any negative value.
+                else: value1 = int(i.split(';')[1])
+                if int(i.split(';')[2]) < 0: value2 = 0
+                else: value2 = int(i.split(';')[2])
+                dbinfo.add_field(label1, value1)
+                dbinfo.add_field(label2, value2)
+                dbinfo.Add()
+    portList.close()
+
+def InterfaceUsage(host):
+    currentPortmap = tmp_dir + str(host).replace('\n', '')
+    snmpGet = SNMP.SNMP(community, host)
+    # Interface total usage
+    usageAvgIn = snmpGet.get(snmpOid.total_in_octets)        # output: portID = int (61 = 11)
+    time.sleep(1)
+    usageAvgInNow = snmpGet.get(snmpOid.total_in_octets)
+    usageAvgOut = snmpGet.get(snmpOid.total_out_octets)
+    time.sleep(1)
+    usageAvgOutNow = snmpGet.get(snmpOid.total_out_octets)
+    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "ingress", "outgress")
+    # Interface Errors
+    usageAvgIn = snmpGet.get(snmpOid.ifInErrors)
+    time.sleep(1)
+    usageAvgInNow = snmpGet.get(snmpOid.ifInErrors)
+    usageAvgOut = snmpGet.get(snmpOid.ifOutErrors)
+    time.sleep(1)
+    usageAvgOutNow = snmpGet.get(snmpOid.ifOutErrors)
+    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "InErrors", "OutErrors")
+    # Interface Discards
+    usageAvgIn = snmpGet.get(snmpOid.ifInDiscards)
+    time.sleep(1)
+    usageAvgInNow = snmpGet.get(snmpOid.ifInDiscards)
+    usageAvgOut = snmpGet.get(snmpOid.ifOutDiscards)
+    time.sleep(1)
+    usageAvgOutNow = snmpGet.get(snmpOid.ifOutDiscards)
+    MapInterface(host, usageAvgIn, usageAvgInNow, usageAvgOut, usageAvgOutNow, "InDiscards", "OutDiscards")
+
+def GenIfTable(host):
+    snmpGet = SNMP.SNMP(community, host)
+    interface = snmpGet.get(snmpOid.if_desc)
+    f_portmap = open(portmap_file, 'a')
+    for line in interface.splitlines():
+        if not any(x in line for x in discard_interface): f_portmap.write(line.split('.')[2].replace("STRING:", "") + '\n')       # Don't monitor some type of interface, like vlan, null...
+    f_portmap.close()
+
+def SysInfo(host):
+    # Get device system information such as OS, Model, etc
+    dumpSnmpGet = SNMP.SNMP(community, host)
+    snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo)).split('=')[1]
+    if "CiscoIOSSoftware" in snmpSysType: return "CiscoCatalyst"
+    elif "Linux" in snmpSysType:
+        try:
+            snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo_cp)).split('=')[1]
+            if "Gaia" in snmpSysType: return "CheckPoint"
+            else: return "Linux"
+        except: return "Linux"
+
+# Multiprocessing part
+def snmp_process(host):
+    while True:
+        global portmap_file
+        global system_type
+        portmap_file = str(tmp_dir + "portmap_" + host)
+        system_type = SysInfo(host)
+        global snmpOid
+        if system_type == "CiscoCatalyst":
+            snmpOid = OID.oid.CiscoCatalyst     # Set OID for a device type.
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            envMon(host)
+            InterfaceUsage(host)
+        elif system_type == "Linux":
+            snmpOid = OID.oid.Linux
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            memUsage(host)
+            InterfaceUsage(host)
+        elif system_type == "CheckPoint":
+            snmpOid = OID.oid.CheckPoint
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            envMon(host)
+            envFan(host)
+            InterfaceUsage(host)
+        time.sleep(config.getint("snmp_monitoring", "delay"))
+
+# Create tmp_dir if not exists
+if not path.exists(tmp_dir):
+    try:
+        mkdir("/tmp/monigraf/devices", 0o750)
+    except:
+        mkdir("/tmp/monigraf", 0o750)
+        mkdir("/tmp/monigraf/devices", 0o750)
+
+hostList = open(config['snmp_monitoring']['device_list'], "r").read()
+community = config['snmp_monitoring']['snmp_community']
+hostArray = []; processes = []
+for host in str(hostList).splitlines():
+    if not host.startswith('#'): hostArray.append(host.replace('\n', ''))        # Create array of hosts.
+
+pool = Pool(processes=len(hostArray))
+pool.map(snmp_process, hostArray)

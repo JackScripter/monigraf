@@ -7,7 +7,8 @@ from influxdb import InfluxDBClient
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 passdb = config['influxdb']['password']
-client = InfluxDBClient(host=config['influxdb']['server'], port=8086, username=config['influxdb']['username'], password=passdb)
+if config['influxdb']['ssl'] == "True": client = InfluxDBClient(host=config['influxdb']['server'], port=8086, username=config['influxdb']['username'], password=passdb, ssl=True, verify_ssl=False)
+else: client = InfluxDBClient(host=config['influxdb']['server'], port=8086, username=config['influxdb']['username'], password=passdb)
 client.switch_database(config['influxdb']['dbname'])
 body = {}
 body['tags'] = {}
