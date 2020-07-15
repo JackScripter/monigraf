@@ -10,7 +10,7 @@ class SNMP():
         except: self.snmpHost = socket.gethostbyname(str(host))
 
     def get(self, oid):
-        result = subprocess.run(['/usr/bin/snmpwalk', '-v2c', '-c', self.snmpCommunity, self.snmpHost, oid, '-Pe', '-On'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+        result = subprocess.run(['/usr/bin/snmpwalk', '-v2c', '-t5', '-r3', '-c', self.snmpCommunity, self.snmpHost, oid, '-Pe', '-On'], stdout=subprocess.PIPE).stdout.decode('utf-8')
         result = re.sub(str(oid), '', result)       # Remove parents OID to keep only child.
         result = re.sub('[a-zA-Z]*[0-9]*:', '', result).replace(' ', '')
         return result

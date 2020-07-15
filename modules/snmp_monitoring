@@ -124,8 +124,12 @@ def MapInterface(host, In, InNow, Out, OutNow, label1, label2):
                 dbinfo.add_field("host", host)
                 try: dbinfo.add_tag("port", str(line.split('"')[1]).replace('\n', ''))
                 except: dbinfo.add_tag("port", str(line).split('=')[1].replace('\n', ''))
-                dbinfo.add_field(label1, int(i.split(';')[1]))
-                dbinfo.add_field(label2, int(i.split(';')[2]))
+                if int(i.split(';')[1]) < 0: value1 = 0         # Remove any negative value.
+                else: value1 = int(i.split(';')[1])
+                if int(i.split(';')[2]) < 0: value2 = 0
+                else: value2 = int(i.split(';')[2])
+                dbinfo.add_field(label1, value1)
+                dbinfo.add_field(label2, value2)
                 dbinfo.Add()
     portList.close()
 
