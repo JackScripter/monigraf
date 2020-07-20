@@ -5,6 +5,7 @@ from datetime import date
 import time
 import socket
 from BodyBuilder import BodyBuilder
+from alerts import alert
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
@@ -20,6 +21,12 @@ while True:
         while domain:
             if not domain.startswith('#') and not " " in domain:
                 expiration = Check(domain.rstrip("\n"))
+                
+                # Send alert when status is CRITICAL(2) or WARNING(1)
+                if expiration.split(';')[1] == config['certificates_expiration']['alert_when']:
+                    msg = "Certificate for domain " + domain.rstrip("\n").split(';')[0] + " expire on " + expiration.split(';')[0]
+                    alert.Alerts(str(msg))
+
                 dbinfo = BodyBuilder.BuildBody("certificates_expiration", host)
                 dbinfo.add_tag("domain", domain.rstrip("\n").split(':')[0])
                 dbinfo.add_field("domain", domain.rstrip("\n").split(':')[0])

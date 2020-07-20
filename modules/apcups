@@ -6,6 +6,7 @@ import configparser
 import socket
 import subprocess
 from BodyBuilder import BodyBuilder
+from alerts import alert
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
@@ -18,6 +19,17 @@ def Check():
         elif re.search('BCHARGE', line): battCharge = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("batt_charge", float(battCharge))
         elif re.search('LOADPCT', line): load = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("load", float(load))
         elif re.search('TIMELEFT', line): timeLeft = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("time_left", float(timeLeft))
+    # Alerts
+    if float(inputVolt) <= config.getfloat('apcups','alert_when_volt_below'):
+        msg = "[APC UPS] " + "Inline voltage is " + str(inputVolt)
+        alert.Alerts(str(msg))
+    if float(battCharge) <= config.getfloat('apcups','alert_when_battery_below'):
+        msg = "[APC UPS] " + "Battery charge level is " + str(battCharge)
+        alert.Alerts(str(msg))
+    if float(load) <= config.getfloat('apcups','alert_when_load_below') or float(load) >= config.getfloat('apcups','alert_when_load_above'):
+        msg = "[APC UPS] " + "UPS load is " + str(load)
+        alert.Alerts(str(msg))
+
     dbinfo.Add()
 
 def Refresh():
