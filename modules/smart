@@ -26,7 +26,7 @@ def Check():
         except AttributeError: temp = listDrives[i].attributes[190].raw
         if int(temp) >= config.getint("smart","alert_when_temp_above"):
             if not smart_alerts[i][2]:
-                msg = "[" + host + "] Temperature has reached " + str(temp) + "on drive " + listDrives[i].name
+                msg = "[" + host + "] Temperature has reached " + str(temp) + "°C on drive " + listDrives[i].name
                 alert.Alerts(str(msg))
                 smart_alerts[i][2] = True
         elif smart_alerts[i][2]:
@@ -40,7 +40,7 @@ def Check():
             health = str(listDrives[i].attributes[177])
             health = ' '.join(health.split()).split(' ')[2]
         except: health = int(-1)
-        if int(health) >= config.getint("smart","alert_when_lifespan_below") and int(health) != -1:
+        if int(health) <= config.getint("smart","alert_when_lifespan_below") and int(health) != -1:
             if not smart_alerts[i][1]:
                 msg = "[" + host + "] Lifespan on drive " + listDrives[i].name + " is " + str(health) + "%"
                 alert.Alerts(str(msg))
@@ -83,7 +83,7 @@ Refresh()
 
 # Create multidimensionnal array
 # smart_alerts[x][1] = lifespan; smart_alerts[x][2] = temp
-smart_alerts = [[ 0 for col in range(2)] for row in range(len(listDrives))]
+smart_alerts = [[ False for col in range(3)] for row in range(len(listDrives))]
 for i in range(len(listDrives)):
     dev = listDrives[i].name
     smart_alerts[i][0] = dev

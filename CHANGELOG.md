@@ -2,6 +2,10 @@
 ## [0.3.0] - 2020-xx-xx
 ### New Features
 - Added alerting services such as Telegram.
+### Changes
+- Removed some value to monitor in system module (Slab/Inactive/Active/Shared/Available Memory)
+- In system module, cpu usage includes all cores instead of single core
+- Removed the need to run a module with "refresh" argument"
 
 ## [0.2.0] - 2020-07-15
 ### New Features
