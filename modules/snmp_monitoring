@@ -101,7 +101,7 @@ def envFan(host):
         fan = fan.replace('"', '')
         #dbinfo.add_field("host", host)
         dbinfo.add_tag("fan", fan.split(';')[0])
-        dbinfo.add_field("speed", int(fan.split(';')[1]))
+        dbinfo.add_field("speed", int(float(fan.split(';')[1])))        # Fix floating value on some device
         dbinfo.Add()
 
 # Map port and returned value
