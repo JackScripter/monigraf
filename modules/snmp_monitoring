@@ -20,6 +20,7 @@ def cpuUsage(host):
     cpuUsage = snmpGet.get(snmpOid.cpu_usage)
     try: cpuUsage = cpuUsage.split('=')[1].replace('"','')
     except: cpuUsage = cpuUsage.split('=')[1]
+    if system_type == "Ubiquiti": cpuUsage = cpuUsage.replace(' ','').replace('%','').split('(')[1].split(')')[0]
     try:
         cpuUsage = float(cpuUsage)
         if system_type == "Linux": cpuUsage *= 100.0        # Linux OID give cpu usage in 0 to 1 range.
@@ -27,6 +28,18 @@ def cpuUsage(host):
 
     dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
     dbinfo.add_field("cpu_usage", float(cpuUsage))
+    dbinfo.add_field("host", host)
+    dbinfo.Add()
+
+def memUsageReverse(host):
+    snmpGet = SNMP.SNMP(community, host)
+    memTotal = snmpGet.get(snmpOid.mem_total).split('=')[1]
+    memFree = snmpGet.get(snmpOid.mem_free).split('=')[1]
+    try:
+        ramUsed = int(int(memTotal) - int(memFree)) * 100 / int(memTotal)
+    except: ramUsed = 0
+    dbinfo = BodyBuilder.BuildBody("snmp_monitoring", host)
+    dbinfo.add_field("mem_usage", float(ramUsed))
     dbinfo.add_field("host", host)
     dbinfo.Add()
 
@@ -182,6 +195,7 @@ def SysInfo(host):
 # envMon: Get environment value such as cpu/system temperature                  #
 # envFan: Get fans rotation speed, if available                                 #
 # memUsage: Get memory usage from host                                          #
+# memUsageReverse: Use this when memory free is availble and memory used is not #
 # InterfaceUsage: For each interfaces, retrieve interface usage/error/discard   #
 #################################################################################
 def snmp_process(host):
@@ -214,7 +228,7 @@ def snmp_process(host):
             snmpOid = OID.oid.Ubiquiti
             if not path.exists(portmap_file): GenIfTable(host)
             cpuUsage(host)
-            memUsage(host)
+            memUsageReverse(host)
             InterfaceUsage(host)
         time.sleep(config.getint("snmp_monitoring", "delay"))
 
