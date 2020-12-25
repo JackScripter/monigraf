@@ -66,10 +66,8 @@ def Refresh():
         dbinfo.Add()
 
 listNet = GetDevices()
-if sys.argv[1] == "refresh":
-    dbinfo = BodyBuilder.BuildBody("network_info", host)
-    Refresh()
-    exit()
+dbinfo = BodyBuilder.BuildBody("network_info", host)
+Refresh()
 
 dbinfo = BodyBuilder.BuildBody("network", host)
 while True:

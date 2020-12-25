@@ -6,18 +6,37 @@ import configparser
 import socket
 import subprocess
 from BodyBuilder import BodyBuilder
+from alerts import alert
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 host = socket.gethostname()
 
 def Check():
+    global load_alert
     for line in upsLine.splitlines():
         if re.search('SERIALNO', line): sn = line.split(': ')[1]; dbinfo.add_tag("serial_number", sn)
         elif re.search('LINEV', line): inputVolt = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("inline_volt", float(inputVolt))
         elif re.search('BCHARGE', line): battCharge = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("batt_charge", float(battCharge))
         elif re.search('LOADPCT', line): load = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("load", float(load))
         elif re.search('TIMELEFT', line): timeLeft = line.split(': ')[1].split(' ')[0]; dbinfo.add_field("time_left", float(timeLeft))
+    # Alerts
+    if float(inputVolt) <= config.getfloat('apcups','alert_when_volt_below'):
+        msg = "[APC UPS] " + "Inline voltage is " + str(inputVolt)
+        alert.Alerts(str(msg))
+    if float(battCharge) <= config.getfloat('apcups','alert_when_battery_below'):
+        msg = "[APC UPS] " + "Battery charge level is " + str(battCharge)
+        alert.Alerts(str(msg))
+    if float(load) <= config.getfloat('apcups','alert_when_load_below') or float(load) >= config.getfloat('apcups','alert_when_load_above'):
+        if not load_alert:
+            msg = "[APC UPS] " + "UPS load is " + str(load)
+            alert.Alerts(str(msg))
+            load_alert = True
+    elif load_alert:
+        msg = "[APC UPS] UPS load is OK (" + str(load) + ")"
+        alert.Alerts(str(msg))
+        load_alert = False
+
     dbinfo.Add()
 
 def Refresh():
@@ -31,13 +50,12 @@ def Refresh():
         elif re.search('UPSNAME', line): upsName = line.split(': ')[1]; dbinfo.add_field("ups_name", upsName)
     dbinfo.Add()
 
-if sys.argv[1] == "refresh":
-    listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
-    upsLine = ' '.join(listUPS.split(' '))
-    dbinfo = BodyBuilder.BuildBody("apcups_info", host)
-    Refresh()
-    exit()
+listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')
+upsLine = ' '.join(listUPS.split(' '))
+dbinfo = BodyBuilder.BuildBody("apcups_info", host)
+Refresh()
 
+load_alert = False
 dbinfo = BodyBuilder.BuildBody("apcups", host)
 while True:
     listUPS = subprocess.run(['/sbin/apcaccess'], stdout=subprocess.PIPE).stdout.decode('utf-8')

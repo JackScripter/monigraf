@@ -7,12 +7,14 @@ import socket
 import subprocess
 import psutil
 from BodyBuilder import BodyBuilder
+from alerts import alert
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 host = socket.gethostname()
 
 def Check():
+    global cpu_alert
     # Temperature sensors
     sensorTemp = psutil.sensors_temperatures()
     sensorDevice = sensorTemp.keys()        # Get elements that provides temp.
@@ -27,25 +29,28 @@ def Check():
     # CPU Usage
     dbinfo.del_tag("temp_sensor")
     dbinfo.add_tag("usage", "core")
-    cpuUsage = psutil.cpu_percent(percpu=True)
-    for i in range(len(cpuUsage)):
-        coreLabel = "Core_" + str(i)
-        dbinfo.add_field(coreLabel, float(cpuUsage[i]))
+    cpuUsage = psutil.cpu_percent(percpu=False)
+    # Alert CPU Usage
+    if float(cpuUsage) >= config.getfloat('system','alert_when_cpu_above'):
+        # If an alert was not already sent
+        if not cpu_alert:
+            msg = "[" + host + "] CPU usage is " + str(cpuUsage) + "%"
+            alert.Alerts(str(msg))
+            cpu_alert = True
+    elif cpu_alert:
+        msg = "[" + host + "] CPU usage is now below threshold."
+        alert.Alerts(str(msg))
+        cpu_alert = False
+    dbinfo.add_field("cpu_usage", float(cpuUsage))
     dbinfo.Add()
     # Memory Usage
     dbinfo.add_tag("usage", "memory")
     memUsage = psutil.virtual_memory()
     for i in range(len(memUsage)):
         dbinfo.add_field("total", int(memUsage[0]))
-        dbinfo.add_field("available", int(memUsage[1]))
         dbinfo.add_field("used", int(memUsage[3]))
         dbinfo.add_field("free", int(memUsage[4]))
-        dbinfo.add_field("active", int(memUsage[5]))
-        dbinfo.add_field("inactive", int(memUsage[6]))
-        dbinfo.add_field("buffers", int(memUsage[7]))
         dbinfo.add_field("cached", int(memUsage[8]))
-        dbinfo.add_field("shared", int(memUsage[9]))
-        dbinfo.add_field("slab", int(memUsage[10]))
     dbinfo.Add()
     # Filesystem Usage
     dbinfo.add_tag("usage", "filesystem")
@@ -98,17 +103,15 @@ def Refresh():
             dbinfo.add_field("mem_part_number", memPartNo)
             dbinfo.Add()
 
-    #dbinfo.Add()
-
 cpuInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '4'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
 moboInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '2'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
 memInfos = ' '.join(subprocess.run(['/usr/sbin/dmidecode', '-t', '17'], stdout=subprocess.PIPE).stdout.decode('utf-8').split(' '))
-if sys.argv[1] == "refresh":
-    dbinfo = BodyBuilder.BuildBody("system_info", host)
-    Refresh()
-    exit()
+
+dbinfo = BodyBuilder.BuildBody("system_info", host)
+Refresh()
 
 dbinfo = BodyBuilder.BuildBody("system", host)
+cpu_alert = False
 while True:
     Check()
     time.sleep(config.getint('system','delay'))

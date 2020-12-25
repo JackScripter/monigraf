@@ -30,6 +30,8 @@ function general() {
 	cp -rv ES ${MODULES_PATH}/
 	cp -rv SNMP ${MODULES_PATH}/
 	cp -rv BodyBuilder ${MODULES_PATH}/
+        cp -rv alerts ${MODULES_PATH}/
+        mv -v ${MODULES_PATH}/alerts/*/ ${MODULES_PATH}/
 	cp -v monigraf.py ${MODULES_PATH}/
 
 	if ! [ -f ${CONFIG_PATH}/monigraf.ini ]; then

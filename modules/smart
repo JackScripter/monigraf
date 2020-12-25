@@ -5,12 +5,14 @@ import configparser
 import socket
 from pySMART import DeviceList
 from BodyBuilder import BodyBuilder
+from alerts import alert
 
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 host = socket.gethostname()
 
 def Check():
+    global smart_alerts
     for i in range(len(listDrives)):
         sn = listDrives[i].serial
         # Try to get attributes from drives.
@@ -22,12 +24,31 @@ def Check():
         # Temperature
         try: temp = listDrives[i].attributes[194].raw
         except AttributeError: temp = listDrives[i].attributes[190].raw
+        if int(temp) >= config.getint("smart","alert_when_temp_above"):
+            if not smart_alerts[i][2]:
+                msg = "[" + host + "] Temperature has reached " + str(temp) + "°C on drive " + listDrives[i].name
+                alert.Alerts(str(msg))
+                smart_alerts[i][2] = True
+        elif smart_alerts[i][2]:
+            msg = "[" + host + "] Temperature on " + listDrives[i].name + " is OK. Temp: " + str(temp)
+            alert.Alerts(str(msg))
+            smart_alerts[i][2] = False
+        # Poweron hours
         poweron = listDrives[i].attributes[9].raw
         # Health
         try:
             health = str(listDrives[i].attributes[177])
             health = ' '.join(health.split()).split(' ')[2]
         except: health = int(-1)
+        if int(health) <= config.getint("smart","alert_when_lifespan_below") and int(health) != -1:
+            if not smart_alerts[i][1]:
+                msg = "[" + host + "] Lifespan on drive " + listDrives[i].name + " is " + str(health) + "%"
+                alert.Alerts(str(msg))
+                smart_alerts[i][1] = True
+        elif smart_alerts[i][1]:
+            msg = "[" + host + "] Lifespan on drive " + listDrives[i].name + " is OK"
+            alert.Alerts(str(msg))
+            smart_alerts[i][1] = False
         dbinfo.add_tag("serial_number", sn)
         dbinfo.add_field("tbw", float(tbw))
         dbinfo.add_field("temperature", int(temp))
@@ -56,11 +77,16 @@ def Refresh():
         dbinfo.add_field("firmware", firmware)
         dbinfo.Add()
 
-if sys.argv[1] == "refresh":
-    listDrives = DeviceList().devices
-    dbinfo = BodyBuilder.BuildBody("smart_info", host)
-    Refresh()
-    exit()
+listDrives = DeviceList().devices
+dbinfo = BodyBuilder.BuildBody("smart_info", host)
+Refresh()
+
+# Create multidimensionnal array
+# smart_alerts[x][1] = lifespan; smart_alerts[x][2] = temp
+smart_alerts = [[ False for col in range(3)] for row in range(len(listDrives))]
+for i in range(len(listDrives)):
+    dev = listDrives[i].name
+    smart_alerts[i][0] = dev
 
 dbinfo = BodyBuilder.BuildBody("smart", host)
 while True:
