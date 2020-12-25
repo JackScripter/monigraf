@@ -2,6 +2,7 @@
 ## [0.3.0] - 2020-xx-xx
 ### New Features
 - Added alerting services such as Telegram and Discord.
+- Support SNMP Ubiquiti switch
 ### Changes
 - Removed some value to monitor in system module (Slab/Inactive/Active/Shared/Available Memory)
 - In system module, cpu usage includes all cores instead of single core
@@ -15,7 +16,7 @@
 - certificates_expiration
 - snmp_monitoring
 ### Fixes
-- Store temporary data in a dictonary instead of multiple single variable
+- Store temporary data in a dictionary instead of multiple single variable
 - Remove unused python module
 - Support CentOS and Debian
 

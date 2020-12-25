@@ -48,3 +48,18 @@ class oid:
         ifOutErrors = "1.3.6.1.2.1.2.2.1.20"
         ifInDiscards = "1.3.6.1.2.1.2.2.1.13"
         ifOutDiscards = "1.3.6.1.2.1.2.2.1.19"
+
+    class Ubiquiti:
+        cpu_usage = "1.3.6.1.4.1.4413.1.1.1.1.4.9.0"
+        mem_used = "1.3.6.1.4.1.4413.1.1.1.1.4.1.0" # Memfree
+        mem_total = "1.3.6.1.4.1.4413.1.1.1.1.4.2.0" # In Kb
+        if_desc = "1.0.8802.1.1.2.1.3.7.1.3"
+        #total_in_octets = "1.3.6.1.4.1.4413.1.1.1.1.8.1.1.1"  # Bits
+        #total_out_octets = "1.3.6.1.4.1.4413.1.1.1.1.8.1.1.2"  # Bits
+        total_in_octets = "1.3.6.1.2.1.2.2.1.10"
+        total_out_octets = "1.3.6.1.2.1.2.2.1.16"
+        ifInErrors = "1.3.6.1.2.1.2.2.1.14"
+        ifOutErrors = "1.3.6.1.2.1.2.2.1.20"
+        ifInDiscards = "1.3.6.1.2.1.2.2.1.13"
+        ifOutDiscards = "1.3.6.1.2.1.2.2.1.19"
+        

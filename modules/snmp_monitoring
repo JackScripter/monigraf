@@ -7,13 +7,6 @@ from SNMP import SNMP, OID
 from multiprocessing import Pool
 from BodyBuilder import BodyBuilder
 
-# 1:normal
-#2:warning
-#3:critical
-#4:shutdown
-#5:notPresent
-#6:notFunctioning
-
 config = configparser.ConfigParser()
 config.read('/etc/monigraf/monigraf.ini')
 
@@ -174,6 +167,7 @@ def SysInfo(host):
     dumpSnmpGet = SNMP.SNMP(community, host)
     snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo)).split('=')[1]
     if "CiscoIOSSoftware" in snmpSysType: return "CiscoCatalyst"
+    elif "EdgeSwitch" in snmpSysType: return "Ubiquiti"
     elif "Linux" in snmpSysType:
         try:
             snmpSysType = str(dumpSnmpGet.get(OID.oid.sysinfo_cp)).split('=')[1]
@@ -181,7 +175,15 @@ def SysInfo(host):
             else: return "Linux"
         except: return "Linux"
 
-# Multiprocessing part
+################################## Multiprocessing part #########################
+# Refer to file SNMP/OID.py to adjust OID and to new system                     #
+#                                                                               #
+# cpuUsage: Retrieve CPU usage from host                                        #
+# envMon: Get environment value such as cpu/system temperature                  #
+# envFan: Get fans rotation speed, if available                                 #
+# memUsage: Get memory usage from host                                          #
+# InterfaceUsage: For each interfaces, retrieve interface usage/error/discard   #
+#################################################################################
 def snmp_process(host):
     while True:
         global portmap_file
@@ -207,6 +209,12 @@ def snmp_process(host):
             cpuUsage(host)
             envMon(host)
             envFan(host)
+            InterfaceUsage(host)
+        elif system_type == "Ubiquiti":
+            snmpOid = OID.oid.Ubiquiti
+            if not path.exists(portmap_file): GenIfTable(host)
+            cpuUsage(host)
+            memUsage(host)
             InterfaceUsage(host)
         time.sleep(config.getint("snmp_monitoring", "delay"))
 
